@@ -6,6 +6,7 @@ import com.example.handsfree_server.pojo.ResponseFromMainAPi
 import kotlinx.coroutines.Deferred
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
+import retrofit2.Response
 
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -22,5 +23,5 @@ interface HandsFreeApi {
     fun initAsync(): Deferred<ResponseBody>
 
     @GET("/creds")
-    fun getCredentialsAsync():Deferred<ResponseBody>
+    fun getCredentialsAsync():Deferred<Response<ResponseBody>>
 }

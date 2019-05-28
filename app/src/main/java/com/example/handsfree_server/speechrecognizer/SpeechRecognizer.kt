@@ -22,7 +22,7 @@ class SpeechRecognizer {
     interface SpeechListener {
         fun onSpeechRecognized(speechResponse: SpeechResponse)
         fun onBind()
-        fun stopListening()
+        fun onCompleted(recognizedText:String)
     }
 
     var speechListener: SpeechListener? = null
@@ -57,10 +57,6 @@ class SpeechRecognizer {
         override fun onVoiceEnd() {
             Log.d(TAG, "onVoiceEnd: Called")
             speechService?.finishRecognizing()
-            if (recognizedText.isNotBlank()) {
-                speechListener?.stopListening()
-                recognizedText = ""
-            }
 
         }
     }
@@ -81,7 +77,7 @@ class SpeechRecognizer {
             }
             val listener = speechListener
             if (listener == null) {
-                Log.e(TAG, "Speech listener is null! cannot")
+                Log.e(TAG, "Speech listener is null!")
                 return
             }
 
@@ -99,6 +95,7 @@ class SpeechRecognizer {
 
     fun stopVoiceRecorder() {
         voiceRecorder?.stop()
+        voiceRecorder = null
         isSpeechRecognizerActive = false
     }
 

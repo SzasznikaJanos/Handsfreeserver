@@ -7,6 +7,9 @@ import android.net.Uri
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import androidx.annotation.IdRes
+import androidx.annotation.RawRes
+import com.example.handsfree_server.R
 
 import com.example.handsfree_server.pojo.Output
 
@@ -14,28 +17,45 @@ import com.google.android.exoplayer2.ExoPlayerFactory
 import com.google.android.exoplayer2.Player
 
 import com.google.android.exoplayer2.source.ExtractorMediaSource
+import com.google.android.exoplayer2.upstream.*
 
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 
 
 class AudioPlayer(val context: Context) {
 
+    companion object {
+
+        const val AUDIO_ID_START_RECOGNITION = 0
+        const val AUDIO_ID_PLAY_FEEDBACK = 1
+        const val AUDIO_ID_PLAY_OUTPUTS  =2
+        const val AUDIO_ID_NEW_REQUEST  = 3
+    }
+
+    interface AudioPlayerCallbacks {
+        fun onAudioEnd(audioId: Int)
+        fun onAudioStart(speechItem: SpeechItem)
+    }
 
     private val exoPlayer by lazy { ExoPlayerFactory.newSimpleInstance(context) }
     private val userAgent = Util.getUserAgent(context, "audioPlayer")
     private val dataSourceFactory = DefaultDataSourceFactory(context, userAgent, DefaultBandwidthMeter())
     private var outputs: List<Output> = mutableListOf()
     private var outPutPosition = 0
-
+    private var audioId = -1
 
     private val audioListener = object : Player.EventListener {
 
         override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
             when (playbackState) {
-                Player.STATE_ENDED -> handleConsecutivePlay()
-                Player.STATE_READY -> audioPlayerCallBack?.onAudioStart(buildSpeechItem())
+                Player.STATE_ENDED -> {
+                    if(outPutPosition in 0 until outputs.size){
+                        handleConsecutivePlay()
+                    }else {
+                        audioPlayerCallBack?.onAudioEnd(audioId)
+                    }
+                }
+                Player.STATE_READY -> buildSpeechItem()?.let { audioPlayerCallBack?.onAudioStart(it) }
             }
         }
     }
@@ -48,12 +68,13 @@ class AudioPlayer(val context: Context) {
     }
 
 
+
     private fun handleConsecutivePlay() {
         outPutPosition++
         if (outPutPosition in 0 until outputs.size) {
             prepareAudio(outputs[outPutPosition].audio)
         } else if (outPutPosition == outputs.size) {
-            audioPlayerCallBack?.onAudioEnd()
+            audioPlayerCallBack?.onAudioEnd(audioId)
         }
     }
 
@@ -80,13 +101,16 @@ class AudioPlayer(val context: Context) {
     }
 
 
-    private fun buildSpeechItem(): SpeechItem {
-        val output = outputs[outPutPosition]
-        return if (output.type == "phrase") {
-            buildSpeechItemSpannableFromQuizItem(output) ?: SpeechItem(output.text)
-        } else {
-            SpeechItem(output.text)
+    private fun buildSpeechItem(): SpeechItem? {
+        if (outPutPosition in 0 until outputs.size) {
+            val output = outputs[outPutPosition]
+            return if (output.type == "phrase") {
+                buildSpeechItemSpannableFromQuizItem(output) ?: SpeechItem(output.text)
+            } else {
+                SpeechItem(output.text)
+            }
         }
+        return null
     }
 
     private fun prepareAudio(audioUrl: String) {
@@ -96,15 +120,27 @@ class AudioPlayer(val context: Context) {
         exoPlayer.prepare(mediaSource)
     }
 
-    fun play(outputs: List<Output>) {
+    private fun prepareAudio(resId: Int) {
+        val rawResourceDataSource = RawResourceDataSource(context)
+        rawResourceDataSource.open(DataSpec(RawResourceDataSource.buildRawResourceUri(resId)))
+        val factory = DataSource.Factory { rawResourceDataSource }
+        val audioSource = ExtractorMediaSource.Factory(factory).createMediaSource(rawResourceDataSource.uri)
+        exoPlayer.playWhenReady = true
+        exoPlayer.prepare(audioSource)
+
+    }
+
+    fun play(@RawRes resId: Int, audioId: Int) {
+        this.audioId = audioId
+        prepareAudio(resId)
+    }
+
+    fun play(outputs: List<Output>, audioId: Int) {
         this.outputs = outputs
+        this.audioId = audioId
         outPutPosition = 0
         prepareAudio(outputs.first().audio)
     }
 
 
-    interface AudioPlayerCallbacks {
-        fun onAudioEnd()
-        fun onAudioStart(speechItem: SpeechItem)
-    }
 }

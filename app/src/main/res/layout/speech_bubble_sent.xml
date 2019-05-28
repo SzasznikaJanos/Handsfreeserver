@@ -3,8 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-                                                   tools:background="@drawable/main_background"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    tools:background="@drawable/main_background">
 
     <ImageView
         android:id="@+id/profilePicture"
@@ -21,7 +21,7 @@
         app:layout_constraintVertical_bias="0.0" />
 
     <FrameLayout
-        android:id="@+id/bubbleFrame"
+        android:id="@+id/frame_bubble"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/margin_small"
@@ -35,10 +35,9 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/speechFrame"
+
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:visibility="gone"
             tools:visibility="visible">
 
             <ImageView

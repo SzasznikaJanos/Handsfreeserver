@@ -11,7 +11,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.view.ViewCompat.animate
 
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -93,7 +92,6 @@ class SpeechAdapter(private val speechItemList: MutableList<SpeechItem> = mutabl
         if (size == 1) return true
         val previousItem = if (size > 1 && position > 0) speechItemList[position - 1] else null
         return item.type == SpeechType.SENT || item.type != previousItem?.type
-
     }
 
     fun lastSpeechPosition() = speechItemList.indexOfLast { it.type == SpeechType.SENT }
@@ -113,8 +111,8 @@ class SpeechAdapter(private val speechItemList: MutableList<SpeechItem> = mutabl
         var resultImageView: ImageView = itemView.findViewById(R.id.resultImage)
         var profileImage: ImageView = itemView.findViewById(R.id.profilePicture)
 
-        private var bubbleFrame: FrameLayout? = itemView.findViewById(R.id.bubbleFrame)
-        private var constraintFrame: ConstraintLayout = itemView.findViewById(R.id.speechFrame)
+        private var bubbleFrame: FrameLayout? = itemView.findViewById(R.id.frame_bubble)
+        //private var constraintFrame: ConstraintLayout = itemView.findViewById(R.id.speechFrame)
         fun bind(currentItem: SpeechItem?) = with(currentItem) {
             this?.let {
                 if (!isProfileInitialized) {
@@ -127,7 +125,7 @@ class SpeechAdapter(private val speechItemList: MutableList<SpeechItem> = mutabl
                 profileImage.visibility = if (isShowProfilePicture) View.VISIBLE else View.INVISIBLE
 
                 setProfileImage(it)
-                constraintFrame.visibility = View.VISIBLE
+                //constraintFrame.visibility = View.VISIBLE
                 setText(it)
                 animate(it, adapterPosition)
                 setResultImage(it)

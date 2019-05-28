@@ -113,7 +113,6 @@ class VoiceRecorder internal constructor(private val mCallback: Callback) : Coro
      */
     fun start() {
         // Try to create a new recording session.
-
             stop = false
 
 
@@ -217,9 +216,8 @@ class VoiceRecorder internal constructor(private val mCallback: Callback) : Coro
     }
 
     private fun isHearingVoice(buffer: ByteArray?, size: Int): Boolean {
-        if (buffer == null) {
-            return false
-        }
+        if (buffer == null) return false
+
         var i = 0
         while (i < size - 1) {
             // The buffer has LINEAR16 in little endian.

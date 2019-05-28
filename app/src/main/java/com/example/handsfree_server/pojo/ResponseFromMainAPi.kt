@@ -13,7 +13,7 @@ data class ResponseFromMainAPi(
     @SerializedName("output")
     val output: List<Output>,
 
-    @SerializedName("input_hints")
+    @SerializedName("hints")
     val inputHints: List<String> = listOf(),
 
     @SerializedName("is_correct")

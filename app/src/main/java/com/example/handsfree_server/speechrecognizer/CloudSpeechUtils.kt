@@ -3,6 +3,7 @@ package com.example.handsfree_server.speechrecognizer
 
 import android.util.Log
 import com.example.handsfree_server.api.HandsfreeClient
+import com.example.handsfree_server.speechrecognizer.SpeechRecognizer.Companion.recognizedText
 import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.speech.v1p1beta1.RecognitionConfig
@@ -28,12 +29,19 @@ object CloudSpeechUtils {
     suspend fun createGoogleCredentials(): GoogleCredentials? {
 
 
-        val credentials = HandsfreeClient.client.getCredentialsAsync().await().bytes()
-        if (credentials == null) {
-            Log.e(TAG, "createAccessTokenForGrpcApi: Failed to load credentials from server!")
+        val credentialsResponse = HandsfreeClient.client.getCredentialsAsync().await()
 
+        if (credentialsResponse.code() != 200) {
+            credentialsResponse.errorBody()?.let {
+                Log.e(TAG, "createAccessTokenForGrpcApi: Failed to load credentials from server!")
+                Log.e(TAG, "createGoogleCredentials: ${it.string()}} ")
+            }
+        } else {
+            val credentials = credentialsResponse.body()?.bytes()
+            return GoogleCredentials.fromStream(ByteArrayInputStream(credentials)).createScoped(SCOPE)
         }
-        return GoogleCredentials.fromStream(ByteArrayInputStream(credentials)).createScoped(SCOPE)
+
+        return null
     }
 
     private fun createAccessTokenForGrpcApi(googleCredentials: GoogleCredentials): AccessToken? {
@@ -53,9 +61,9 @@ object CloudSpeechUtils {
         val accessToken = createAccessTokenForGrpcApi(googleCredentials)
         return if (accessToken != null) {
             val channel = OkHttpChannelProvider().builderForAddress(HOSTNAME, PORT)
-                .nameResolverFactory(DnsNameResolverProvider())
-                .intercept(GoogleCredentialsInterceptor(GoogleCredentials.create(accessToken).createScoped(SCOPE)))
-                .build()
+                    .nameResolverFactory(DnsNameResolverProvider())
+                    .intercept(GoogleCredentialsInterceptor(GoogleCredentials.create(accessToken).createScoped(SCOPE)))
+                    .build()
 
             SpeechGrpc.newStub(channel)
         } else {
@@ -72,27 +80,31 @@ object CloudSpeechUtils {
     }
 
     fun buildResponseObserver(speechListener: SpeechRecognizer.SpeechListener?): StreamObserver<StreamingRecognizeResponse> =
-        object : StreamObserver<StreamingRecognizeResponse> {
-            override fun onNext(response: StreamingRecognizeResponse) {
-                synchronized(SpeechService.LOCK) {
-                    SpeechResponse.fromApiResponse(response)?.let { speechListener?.onSpeechRecognized(it) }
+            object : StreamObserver<StreamingRecognizeResponse> {
+                override fun onNext(response: StreamingRecognizeResponse) {
+                    synchronized(SpeechService.LOCK) {
+                        SpeechResponse.fromApiResponse(response)?.let { speechListener?.onSpeechRecognized(it) }
+                    }
+                }
+
+                override fun onError(t: Throwable) {
+                    Log.e(TAG, "Error calling the API.", t)
+                }
+
+                override fun onCompleted() {
+                    Log.d(TAG, "onCompleted Thread: " + Thread.currentThread().name)
+                    if (recognizedText.isNotBlank()) {
+                        speechListener?.onCompleted(recognizedText)
+                        recognizedText = ""
+                    }
+
                 }
             }
 
-            override fun onError(t: Throwable) {
-                Log.e(TAG, "Error calling the API.", t)
-            }
-
-            override fun onCompleted() {
-                Log.d(TAG, "onCompleted Thread: " + Thread.currentThread().name)
-                //speechListener?.onVoiceEnded()
-            }
-        }
-
     fun buildRecognitionConfig(sampleRate: Int, languageTag: String): RecognitionConfig.Builder {
         return RecognitionConfig.newBuilder()
-            .setLanguageCode(languageTag)
-            .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
-            .setSampleRateHertz(sampleRate)
+                .setLanguageCode(languageTag)
+                .setEncoding(RecognitionConfig.AudioEncoding.LINEAR16)
+                .setSampleRateHertz(sampleRate)
     }
 }

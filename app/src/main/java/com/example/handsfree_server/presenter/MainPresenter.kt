@@ -6,6 +6,7 @@ import com.example.handsfree_server.R
 import com.example.handsfree_server.api.HandsfreeClient
 import com.example.handsfree_server.api.MainBody
 import com.example.handsfree_server.model.AudioPlayer
+import com.example.handsfree_server.model.AudioPlayer2
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.pojo.ResponseFromMainAPi
 
@@ -19,9 +20,14 @@ import com.example.handsfree_server.view.MainView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.*
 import kotlin.coroutines.CoroutineContext
 
-class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: MainView) : CoroutineScope {
+class MainPresenter(
+    private val audioPlayer: AudioPlayer2,
+    private val mainView: MainView,
+    private val locale: String
+) : CoroutineScope {
 
     private var cachedResponse: ResponseFromMainAPi? = null
 
@@ -52,8 +58,9 @@ class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: 
         }
 
         override fun onBind() {
-            audioPlayer.audioPlayerCallBack = object : AudioPlayer.AudioPlayerCallbacks {
-                override fun onAudioEnd(audioId: Int) {
+            audioPlayer.audioPlayerListener = object : AudioPlayer2.AudioPlayerListener {
+
+                override fun onAudioCompleted(audioId: Int) {
                     when (audioId) {
                         AudioPlayer.AUDIO_ID_START_RECOGNITION -> startSpeechListening()
                         AudioPlayer.AUDIO_ID_PLAY_FEEDBACK -> playAudioFeedBack(
@@ -74,7 +81,8 @@ class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: 
             Log.d(TAG, "onCompleted: recognizedText = $recognizedText")
             mainView.addRecognizedSpeechBubble(recognizedText, true)
             launch {
-                val response = handsFreeApi.postMainAsync(MainBody("test", recognizedText).toRequestBody()).await()
+                val response =
+                    handsFreeApi.postMainAsync(MainBody("test", recognizedText, locale).toRequestBody()).await()
 
                 handleResponse(response)
             }
@@ -89,7 +97,10 @@ class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: 
 
                 val isMatching = userResponse.toLowerCase() == targetText.toLowerCase()
 
-                Log.d(TAG, "handleContinuousResponse: response: ${userResponse.toLowerCase()}, terget: ${targetText.toLowerCase()}")
+                Log.d(
+                    TAG,
+                    "handleContinuousResponse: response: ${userResponse.toLowerCase()}, terget: ${targetText.toLowerCase()}"
+                )
                 if (isMatching) {
                     stopSpeechListening()
                 }
@@ -98,6 +109,7 @@ class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: 
     }
 
     private fun handleResponse(response: ResponseFromMainAPi) {
+
         cachedResponse = response
 
         if (response.isCorrect != null) {
@@ -106,11 +118,13 @@ class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: 
         } else {
             playOutPuts()
         }
+
+        cancelled = true
     }
 
     private fun emptyRequest() {
         launch {
-            val response = handsFreeApi.postMainAsync(MainBody("test").toRequestBody()).await()
+            val response = handsFreeApi.postMainAsync(MainBody("test", location = locale).toRequestBody()).await()
             handleResponse(response)
         }
     }
@@ -128,7 +142,7 @@ class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: 
     fun start() {
         launch {
             handsFreeApi.initAsync().await()
-            val response = handsFreeApi.postMainAsync(MainBody("test").toRequestBody()).await()
+            val response = handsFreeApi.postMainAsync(MainBody("test", location = locale).toRequestBody()).await()
             cachedResponse = response
             audioPlayer.play(response.output, AudioPlayer.AUDIO_ID_START_RECOGNITION)
         }
@@ -136,7 +150,11 @@ class MainPresenter(private val audioPlayer: AudioPlayer, private val mainView: 
 
     fun startSpeechListening() {
         cancelled = false
-        speechRecognizer.startVoiceRecorder(cachedResponse?.inputLang ?: "", true, cachedResponse?.inputHints?: emptyList())
+        speechRecognizer.startVoiceRecorder(
+            cachedResponse?.inputLang ?: "",
+            true,
+            cachedResponse?.inputHints ?: emptyList()
+        )
         mainView.showMicInput()
         playMicrophoneSound()
 

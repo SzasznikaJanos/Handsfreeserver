@@ -4,8 +4,6 @@ import android.content.Context
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 
 
@@ -14,7 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.handsfree_server.adapters.Adapter
 
 import com.example.handsfree_server.api.HandsfreeClient
-import com.example.handsfree_server.model.AudioPlayer
+import com.example.handsfree_server.model.AudioPlayer2
 
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.model.SpeechType
@@ -26,9 +24,9 @@ import com.nabinbhandari.android.permissions.Permissions
 
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
+import java.util.*
 
 
-import java.util.ArrayList
 import kotlin.coroutines.CoroutineContext
 
 
@@ -40,7 +38,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
 
     val client = HandsfreeClient.client
 
-    val presenter by lazy { MainPresenter(AudioPlayer(this), this) }
+    val presenter by lazy { MainPresenter(AudioPlayer2(this), this, TimeZone.getDefault().id) }
     private var itemHasBeenAdded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,7 +84,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
 
     private fun addItem(speechItem: SpeechItem) {
         adapter.addItem(speechItem)
-        scrollToPositionIfNeed(false);
+        scrollToPositionIfNeed(false)
     }
 
 
@@ -178,4 +176,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         snackBar.show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        scrollToPositionIfNeed(false)
+    }
 }

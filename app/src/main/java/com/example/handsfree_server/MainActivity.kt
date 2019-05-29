@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.handsfree_server.adapters.Adapter
 
 import com.example.handsfree_server.api.HandsfreeClient
-import com.example.handsfree_server.model.AudioPlayer2
+import com.example.handsfree_server.model.AudioPlayer
 
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.model.SpeechType
@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
 
     val client = HandsfreeClient.client
 
-    val presenter by lazy { MainPresenter(AudioPlayer2(this), this, TimeZone.getDefault().id) }
+    val presenter by lazy { MainPresenter(AudioPlayer(this), this, TimeZone.getDefault().id) }
     private var itemHasBeenAdded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {

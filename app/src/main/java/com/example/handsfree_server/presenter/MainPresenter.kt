@@ -6,7 +6,6 @@ import com.example.handsfree_server.R
 import com.example.handsfree_server.api.HandsfreeClient
 import com.example.handsfree_server.api.MainBody
 import com.example.handsfree_server.model.AudioPlayer
-import com.example.handsfree_server.model.AudioPlayer2
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.pojo.ResponseFromMainAPi
 
@@ -20,11 +19,10 @@ import com.example.handsfree_server.view.MainView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.util.*
 import kotlin.coroutines.CoroutineContext
 
 class MainPresenter(
-    private val audioPlayer: AudioPlayer2,
+    private val audioPlayer: AudioPlayer,
     private val mainView: MainView,
     private val locale: String
 ) : CoroutineScope {
@@ -58,7 +56,7 @@ class MainPresenter(
         }
 
         override fun onBind() {
-            audioPlayer.audioPlayerListener = object : AudioPlayer2.AudioPlayerListener {
+            audioPlayer.audioPlayerListener = object : AudioPlayer.AudioPlayerListener {
 
                 override fun onAudioCompleted(audioId: Int) {
                     when (audioId) {

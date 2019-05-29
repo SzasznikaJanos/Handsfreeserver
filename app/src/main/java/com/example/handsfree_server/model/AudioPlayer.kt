@@ -2,69 +2,115 @@ package com.example.handsfree_server.model
 
 import android.content.Context
 import android.graphics.Color
-
+import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
-import androidx.annotation.IdRes
+import android.util.Log
 import androidx.annotation.RawRes
-import com.example.handsfree_server.R
-
+import androidx.core.net.toUri
 import com.example.handsfree_server.pojo.Output
+import com.example.handsfree_server.util.TAG
+import kotlinx.coroutines.*
+import kotlin.coroutines.CoroutineContext
 
-import com.google.android.exoplayer2.ExoPlayerFactory
-import com.google.android.exoplayer2.Player
+class AudioPlayer(private val context: Context) : CoroutineScope {
+    
 
-import com.google.android.exoplayer2.source.ExtractorMediaSource
-import com.google.android.exoplayer2.upstream.*
+        companion object {
 
-import com.google.android.exoplayer2.util.Util
+            const val AUDIO_ID_START_RECOGNITION = 0
+            const val AUDIO_ID_PLAY_FEEDBACK = 1
+            const val AUDIO_ID_PLAY_OUTPUTS  =2
+            const val AUDIO_ID_NEW_REQUEST  = 3
+        }
+
+    
+    private var job = SupervisorJob()
 
 
-class AudioPlayer(val context: Context) {
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Main + job
 
-    companion object {
 
-        const val AUDIO_ID_START_RECOGNITION = 0
-        const val AUDIO_ID_PLAY_FEEDBACK = 1
-        const val AUDIO_ID_PLAY_OUTPUTS  =2
-        const val AUDIO_ID_NEW_REQUEST  = 3
-    }
-
-    interface AudioPlayerCallbacks {
-        fun onAudioEnd(audioId: Int)
+    interface AudioPlayerListener {
+        fun onAudioCompleted(audioId: Int)
         fun onAudioStart(speechItem: SpeechItem)
     }
 
-    private val exoPlayer by lazy { ExoPlayerFactory.newSimpleInstance(context) }
-    private val userAgent = Util.getUserAgent(context, "audioPlayer")
-    private val dataSourceFactory = DefaultDataSourceFactory(context, userAgent, DefaultBandwidthMeter())
+    private var audioId = 0
+
+    var audioPlayerListener: AudioPlayerListener? = null
+
+    private val mediaPlayer = MediaPlayer()
+
+
+
     private var outputs: List<Output> = mutableListOf()
     private var outPutPosition = 0
-    private var audioId = -1
 
-    private val audioListener = object : Player.EventListener {
 
-        override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
-            when (playbackState) {
-                Player.STATE_ENDED -> {
-                    if(outPutPosition in 0 until outputs.size){
-                        handleConsecutivePlay()
-                    }else {
-                        audioPlayerCallBack?.onAudioEnd(audioId)
-                    }
+    init {
+        mediaPlayer.setOnCompletionListener {
+
+            if(outPutPosition in 0 until outputs.size){
+                handleConsecutivePlay()
+            }else {
+                audioPlayerListener?.onAudioCompleted(audioId)
+            }
+
+        }
+
+        mediaPlayer.setOnPreparedListener { player ->
+            try {
+                buildSpeechItem()?.let {
+                    audioPlayerListener?.onAudioStart(it)
                 }
-                Player.STATE_READY -> buildSpeechItem()?.let { audioPlayerCallBack?.onAudioStart(it) }
+                player.start()
+            } catch (ex: Exception) {
+                Log.e(TAG, "playAudio: ", ex)
             }
         }
     }
 
-    var audioPlayerCallBack: AudioPlayerCallbacks? = null
 
+    private fun prepareMediaPlayerForStart( uri: Uri, isLocal: Boolean = true) {
+        job = Job()
+        launch {
+            stop()
+            try {
+                mediaPlayer.reset()
+                if (isLocal) {
+                    mediaPlayer.setDataSource(context, uri)
+                } else {
+                    val uriString = uri.toString()
+                    mediaPlayer.setDataSource(uriString)
+                }
+                mediaPlayer.prepareAsync()
+            } catch (exception: Exception) {
+                exception.printStackTrace()
+                audioPlayerListener?.onAudioCompleted(audioId)
+            }
+        }
+    }
 
-    init {
-        exoPlayer.addListener(audioListener)
+    private fun getUriFromResId(@RawRes resourceId: Int): Uri {
+        val resourcePath = "android.resource://${context.packageName}/" + resourceId
+        return Uri.parse(resourcePath)
+    }
+
+    fun play(@RawRes resId: Int, audioId: Int) {
+        this.audioId = audioId
+        prepareMediaPlayerForStart( getUriFromResId(resId))
+    }
+
+    fun play(outputs: List<Output>, audioId: Int) {
+        this.outputs = outputs
+        outPutPosition = 0
+        this.audioId = audioId
+        prepareMediaPlayerForStart( outputs.first().audio.toUri())
     }
 
 
@@ -72,32 +118,22 @@ class AudioPlayer(val context: Context) {
     private fun handleConsecutivePlay() {
         outPutPosition++
         if (outPutPosition in 0 until outputs.size) {
-            prepareAudio(outputs[outPutPosition].audio)
+            prepareMediaPlayerForStart(outputs[outPutPosition].audio.toUri())
         } else if (outPutPosition == outputs.size) {
-            audioPlayerCallBack?.onAudioEnd(audioId)
+            audioPlayerListener?.onAudioCompleted(audioId)
         }
     }
 
-    private fun buildSpeechItemSpannableFromQuizItem(outPut: Output): SpeechItem? {
-        val spannableText = transformTextIntoSpannable(outPut.text)
-        return SpeechItem(spannableText, iconImageResId = SpeechItem.MessageIcon(getFlagResIdFromOutPut(outPut), true))
-    }
-
-    private fun getFlagResIdFromOutPut(outPut: Output): Int {
+    fun stop() {
+        if (mediaPlayer.isPlaying) {
+            mediaPlayer.stop()
+        }
         try {
-            val resName = "flag_${outPut.language}"
-            return context.resources.getIdentifier(resName, "drawable", context.packageName)
+            job.cancel()
         } catch (exception: Exception) {
             exception.printStackTrace()
         }
-        return -1
-    }
-
-    private fun transformTextIntoSpannable(text: String): SpannableString {
-
-        val spannableString = SpannableString(text)
-        spannableString.setSpan(ForegroundColorSpan(Color.YELLOW), 0, text.length, Spannable.SPAN_INCLUSIVE_INCLUSIVE)
-        return spannableString
+        mediaPlayer.reset()
     }
 
 
@@ -113,34 +149,26 @@ class AudioPlayer(val context: Context) {
         return null
     }
 
-    private fun prepareAudio(audioUrl: String) {
-        val uri = Uri.parse(audioUrl)
-        val mediaSource = ExtractorMediaSource.Factory(dataSourceFactory).createMediaSource(uri)
-        exoPlayer.playWhenReady = true
-        exoPlayer.prepare(mediaSource)
+
+    private fun buildSpeechItemSpannableFromQuizItem(outPut: Output): SpeechItem? {
+        val spannableText = transformTextIntoSpannable(outPut.text)
+        return SpeechItem(spannableText, iconImageResId = SpeechItem.MessageIcon(getFlagResIdFromOutPut(outPut), true))
     }
 
-    private fun prepareAudio(resId: Int) {
-        val rawResourceDataSource = RawResourceDataSource(context)
-        rawResourceDataSource.open(DataSpec(RawResourceDataSource.buildRawResourceUri(resId)))
-        val factory = DataSource.Factory { rawResourceDataSource }
-        val audioSource = ExtractorMediaSource.Factory(factory).createMediaSource(rawResourceDataSource.uri)
-        exoPlayer.playWhenReady = true
-        exoPlayer.prepare(audioSource)
+    private fun transformTextIntoSpannable(text: String): SpannableString {
 
+        val spannableString = SpannableString(text)
+        spannableString.setSpan(ForegroundColorSpan(Color.YELLOW), 0, text.length, Spannable.SPAN_INCLUSIVE_INCLUSIVE)
+        return spannableString
     }
 
-    fun play(@RawRes resId: Int, audioId: Int) {
-        this.audioId = audioId
-        prepareAudio(resId)
+    private fun getFlagResIdFromOutPut(outPut: Output): Int {
+        try {
+            val resName = "flag_${outPut.language}"
+            return context.resources.getIdentifier(resName, "drawable", context.packageName)
+        } catch (exception: Exception) {
+            exception.printStackTrace()
+        }
+        return -1
     }
-
-    fun play(outputs: List<Output>, audioId: Int) {
-        this.outputs = outputs
-        this.audioId = audioId
-        outPutPosition = 0
-        prepareAudio(outputs.first().audio)
-    }
-
-
 }

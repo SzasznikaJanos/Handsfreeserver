@@ -8,4 +8,4 @@ import okhttp3.ResponseBody
 
 
 
-fun Any.toRequestBody() = RequestBody.create(MediaType.parse("application/json"), this.toJson())
+fun Any.toRequestBody(): RequestBody = RequestBody.create(MediaType.parse("application/json"), this.toJson())

@@ -141,8 +141,7 @@ class MainPresenter(
         launch {
             handsFreeApi.initAsync().await()
             val response = handsFreeApi.postMainAsync(MainBody("test", location = locale).toRequestBody()).await()
-            cachedResponse = response
-            audioPlayer.play(response.output, AudioPlayer.AUDIO_ID_START_RECOGNITION)
+            handleResponse(response)
         }
     }
 

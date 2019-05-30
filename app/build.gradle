@@ -82,8 +82,7 @@ dependencies {
 	//PlayServices
 	implementation "com.google.android.gms:play-services-auth:16.0.1"
 
-	//audioPLayer
-	implementation 'com.google.android.exoplayer:exoplayer-core:2.9.2'
+
 
 	//Permissions
 	implementation 'com.nabinbhandari.android:permissions:3.8'

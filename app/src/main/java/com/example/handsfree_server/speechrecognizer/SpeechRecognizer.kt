@@ -14,8 +14,6 @@ import com.example.handsfree_server.util.TAG
 class SpeechRecognizer {
     companion object {
         var recognizedText: String = ""
-        var isSpeechRecognizerActive = false
-
 
     }
 
@@ -96,14 +94,13 @@ class SpeechRecognizer {
     fun stopVoiceRecorder() {
         voiceRecorder?.stop()
         voiceRecorder = null
-        isSpeechRecognizerActive = false
     }
 
     private fun prepareAndStartVoiceRecorder() {
         voiceRecorder?.stop()
         voiceRecorder = VoiceRecorder(voiceRecorderCallBacks)
         voiceRecorder?.start()
-        isSpeechRecognizerActive = true
+
     }
 
     private fun updateOptions(languageTag: String, isSingleUtterance: Boolean, hints: List<String>?) {

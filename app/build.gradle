@@ -64,6 +64,7 @@ protobuf {
 dependencies {
 	implementation fileTree(dir: 'libs', include: ['*.jar'])
 	implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+	implementation "androidx.lifecycle:lifecycle-viewmodel:2.0.0"
 
 	// Retrofit+Coroutine+Adapter :
 	implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.0.1'
@@ -106,5 +107,6 @@ dependencies {
 	androidTestImplementation 'androidx.test:runner:1.1.1'
 	androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
 	implementation 'com.google.android.material:material:1.0.0'
+	implementation 'androidx.lifecycle:lifecycle-extensions:2.0.0'
 }
 

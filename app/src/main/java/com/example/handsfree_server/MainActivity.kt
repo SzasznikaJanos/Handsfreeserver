@@ -4,19 +4,17 @@ import android.content.Context
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
 
 
 import android.view.View
+import androidx.lifecycle.ViewModelProviders
+
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.handsfree_server.adapters.Adapter
 
-import com.example.handsfree_server.api.HandsfreeClient
-import com.example.handsfree_server.model.AudioPlayer
-
 import com.example.handsfree_server.model.SpeechItem
-import com.example.handsfree_server.model.SpeechType
-import com.example.handsfree_server.presenter.MainPresenter
+
 import com.example.handsfree_server.view.MainView
 import com.google.android.material.snackbar.Snackbar
 import com.nabinbhandari.android.permissions.PermissionHandler
@@ -35,11 +33,17 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
 
     private val adapter by lazy { Adapter() }
 
+    private val layoutManager by lazy {
+        LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+    }
 
-    val client = HandsfreeClient.client
+    private val viewModel: MainViewModel by lazy {
+        ViewModelProviders.of(
+            this@MainActivity,
+            MainViewModelFactory(this@MainActivity, this@MainActivity.application)
+        )[MainViewModel::class.java]
+    }
 
-    val presenter by lazy { MainPresenter(AudioPlayer(this), this, TimeZone.getDefault().id) }
-    private var itemHasBeenAdded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +52,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         mainRecycler.layoutManager = layoutManager
         mainRecycler.adapter = adapter
         checkPermissions()
+
+        viewModel.recognizedTextLiveData.observe(this, androidx.lifecycle.Observer {
+            speechRecognized_textView.text = it
+        })
+
     }
 
 
@@ -59,50 +68,17 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         mic_input_imageView.visibility = View.VISIBLE
     }
 
-    override fun updateQuizResultImage(isCorrect: Boolean) = runOnUiThread {
-        adapter.updateQuizResponseImage(isCorrect)
-
-    }
 
     override fun addTTSBubble(speechItem: SpeechItem) = addItem(speechItem)
 
-    override fun addRecognizedSpeechBubble(speechText: String, isFinal: Boolean) {
-        runOnUiThread {
-            if (itemHasBeenAdded) {
-                updateView(speechText)
-            } else {
-                itemHasBeenAdded = true
-                addItem(SpeechItem(speechText, type = SpeechType.SENT))
-            }
-            if (isFinal) {
-                itemHasBeenAdded = false
-                adapter.silentUpdate(speechText)
-            }
-        }
-
-    }
 
     private fun addItem(speechItem: SpeechItem) {
-        adapter.addItem(speechItem)
-        scrollToPositionIfNeed(false)
-    }
-
-
-    private fun updateView(text: String) {
-        val lastSentSpeechItemPosition = adapter.lastSpeechPosition()
-
-
-        val readyToUpdate = isReadyToUpdate(lastSentSpeechItemPosition)
-        Log.d(com.example.handsfree_server.util.TAG, "updateView: isReady to update? = $readyToUpdate")
-        if (readyToUpdate) {
-            val holder =
-                mainRecycler.findViewHolderForAdapterPosition(lastSentSpeechItemPosition) as Adapter.ViewHolder?
-
-            holder?.let {
-                updateViewHolderText(it, text)
-            }
+        runOnUiThread {
+            adapter.addItem(speechItem)
+            scrollToPositionIfNeed(false)
         }
     }
+
 
     private fun scrollToPositionIfNeed(scrollImmediately: Boolean) {
         val positionToScroll = if (adapter.itemCount < 1) return else adapter.itemCount - 1
@@ -120,23 +96,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         }
     }
 
-    private fun updateViewHolderText(holder: Adapter.ViewHolder, userResponse: String) {
-        holder.speechTextView?.let {
-            it.text = userResponse
-            it.visibility = View.VISIBLE
-        }
-
-    }
-
-    private val layoutManager by lazy { LinearLayoutManager(this) }
-
-    private fun isReadyToUpdate(lastSentSpeechItemPosition: Int): Boolean {
-        val isPositionMatching = adapter.itemCount - 1 == lastSentSpeechItemPosition
-        val isComputingLayout = mainRecycler.isComputingLayout
-        val bubbleIsReady = adapter.validateSpeechBubbleUpdatePosition(lastSentSpeechItemPosition)
-        return isPositionMatching && !isComputingLayout && bubbleIsReady
-    }
-
 
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main
@@ -146,7 +105,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         val rationalString = "We need Voice recorder permission to use speech recognition."
 
         val permissionHandler = object : PermissionHandler() {
-            override fun onGranted() = presenter.bind(applicationContext)
+            override fun onGranted() {
+                viewModel.bind(this@MainActivity.application)
+            }
 
             override fun onDenied(context: Context?, deniedPermissions: ArrayList<String>?) =
                 handleDeniedPermission("We need Audio Record permission so we can use Speech Recognition")

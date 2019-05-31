@@ -15,9 +15,8 @@ import com.example.handsfree_server.model.SpeechType
 
 
 class Adapter : RecyclerView.Adapter<Adapter.ViewHolder>() {
+
     val speechItems: MutableList<SpeechItem> = mutableListOf()
-
-
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val resId =
@@ -38,43 +37,9 @@ class Adapter : RecyclerView.Adapter<Adapter.ViewHolder>() {
         notifyItemInserted(speechItems.size - 1)
     }
 
-    fun updateQuizResponseImage(correct: Boolean) {
-        findLastSentSpeechItem()?.let {
-            it.messageIcon = SpeechItem.MessageIcon(if (correct) R.drawable.logo_correct else R.drawable.logo_retry)
-            notifyItemChanged(speechItems.lastIndex)
-        }
-    }
-
-    private fun findLastSentSpeechItem(): SpeechItem? {
-        val lastPosition = speechItems.lastIndex
-        if (lastPosition < 0) return null
-
-        val lastSentSpeechItem = speechItems.findLast { it.type == SpeechType.SENT }
-        if (lastSentSpeechItem == null || speechItems.indexOf(lastSentSpeechItem) != lastPosition) {
-            return null
-        }
-        return lastSentSpeechItem
-    }
-
-    fun lastSpeechPosition() = speechItems.indexOfLast { it.type == SpeechType.SENT }
-
-
-    fun validateSpeechBubbleUpdatePosition(lastSentSpeechItemPosition: Int): Boolean {
-        if (lastSentSpeechItemPosition < 1) return false
-        val item = speechItems[lastSentSpeechItemPosition]
-        val previousItem = speechItems[lastSentSpeechItemPosition - 1]
-
-
-        return item.type == SpeechType.SENT && previousItem.type == SpeechType.RECEIVED
-    }
-
-    fun silentUpdate(speechText: String) {
-        speechItems.lastOrNull { it.type == SpeechType.SENT }?.text = speechText
-    }
-
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
-        val speechTextView: TextView? = itemView.findViewById(R.id.speech_textView)
+        private val speechTextView: TextView? = itemView.findViewById(R.id.speech_textView)
         private val profileIcon: ImageView? = itemView.findViewById(R.id.profilePicture)
         private var resultImageView: ImageView? = itemView.findViewById(R.id.resultImage)
         private var bubbleFrame: FrameLayout? = itemView.findViewById(R.id.frame_bubble)

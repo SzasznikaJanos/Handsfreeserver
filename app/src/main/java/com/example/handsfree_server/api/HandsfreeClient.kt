@@ -8,7 +8,7 @@ import java.util.concurrent.Executors
 
 object HandsfreeClient {
 
-    private const val BASE_URL = "https://fca8b038.ngrok.io//"
+    private const val BASE_URL = "https://6d31f60e.ngrok.io///"
 
 
     private val retrofit by lazy {

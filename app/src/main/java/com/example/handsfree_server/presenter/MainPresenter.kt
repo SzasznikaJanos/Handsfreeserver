@@ -47,7 +47,7 @@ class MainPresenter(
             Log.d(TAG, "onSpeechRecognized: ${speechResponse.speechResponseAsText}")
             recognizedText = speechResponse.speechResponseAsText
             if (!speechResponse.isFinal) {
-                mainView.addRecognizedSpeechBubble(recognizedText, false)
+                //mainView.addRecognizedSpeechBubble(recognizedText, false)
 
             } else {
                 stopSpeechListening()
@@ -77,7 +77,7 @@ class MainPresenter(
 
         override fun onCompleted(recognizedText: String) {
             Log.d(TAG, "onCompleted: recognizedText = $recognizedText")
-            mainView.addRecognizedSpeechBubble(recognizedText, true)
+            // mainView.addRecognizedSpeechBubble(recognizedText, true)
             launch {
                 val response =
                     handsFreeApi.postMainAsync(MainBody("test", recognizedText, locale).toRequestBody()).await()
@@ -111,7 +111,7 @@ class MainPresenter(
         cachedResponse = response
 
         if (response.isCorrect != null) {
-            mainView.updateQuizResultImage(response.isCorrect)
+         //   mainView.updateQuizResultImage(response.isCorrect)
             playAudioFeedBack(response.isCorrect, AudioPlayer.AUDIO_ID_PLAY_OUTPUTS)
         } else {
             playOutPuts()

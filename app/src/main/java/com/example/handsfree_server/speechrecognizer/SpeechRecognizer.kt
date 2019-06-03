@@ -53,7 +53,7 @@ class SpeechRecognizer {
         }
 
         override fun onVoiceEnd() {
-            Log.d(TAG, "onVoiceEnd: Called")
+            Log.d("SpeechRecognition", "onVoiceEnd: Called")
             speechService?.finishRecognizing()
 
         }
@@ -92,6 +92,7 @@ class SpeechRecognizer {
     }
 
     fun stopVoiceRecorder() {
+        Log.d("SpeechRecognition ", "stopVoiceRecorder: ")
         voiceRecorder?.stop()
         voiceRecorder = null
     }

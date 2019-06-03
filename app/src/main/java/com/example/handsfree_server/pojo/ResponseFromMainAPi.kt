@@ -17,7 +17,9 @@ data class ResponseFromMainAPi(
     val inputHints: List<String> = listOf(),
 
     @SerializedName("is_correct")
-    val isCorrect :Boolean? = null
+    val isCorrect :Boolean? = null,
 
+    @SerializedName("dialog_type")
+    val dialogType:String?
 
 )

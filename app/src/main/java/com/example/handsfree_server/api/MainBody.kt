@@ -1,7 +1,7 @@
 package com.example.handsfree_server.api
 
 import com.google.gson.Gson
-import java.util.*
+
 
 data class MainBody(val user_id: String, val user_input: String? = "",val location: String )
 

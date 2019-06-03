@@ -3,7 +3,7 @@ package com.example.handsfree_server.presenter
 import android.content.Context
 import android.util.Log
 import com.example.handsfree_server.R
-import com.example.handsfree_server.api.HandsfreeClient
+import com.example.handsfree_server.api.HandsFreeClient
 import com.example.handsfree_server.api.MainBody
 import com.example.handsfree_server.model.AudioPlayer
 import com.example.handsfree_server.model.SpeechItem
@@ -33,7 +33,7 @@ class MainPresenter(
         get() = Dispatchers.Main
 
 
-    val handsFreeApi = HandsfreeClient.client
+    val handsFreeApi = HandsFreeClient.client
 
 
     private var cancelled = false
@@ -88,23 +88,6 @@ class MainPresenter(
     }
 
 
-    private fun handleContinuousResponse(userResponse: String) {
-        cachedResponse?.let {
-            if (!it.inputHints.isNullOrEmpty()) {
-                val targetText = it.inputHints[0]
-
-                val isMatching = userResponse.toLowerCase() == targetText.toLowerCase()
-
-                Log.d(
-                    TAG,
-                    "handleContinuousResponse: response: ${userResponse.toLowerCase()}, terget: ${targetText.toLowerCase()}"
-                )
-                if (isMatching) {
-                    stopSpeechListening()
-                }
-            }
-        }
-    }
 
     private fun handleResponse(response: ResponseFromMainAPi) {
 

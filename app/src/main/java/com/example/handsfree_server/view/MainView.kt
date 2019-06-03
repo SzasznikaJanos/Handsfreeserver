@@ -8,5 +8,5 @@ interface MainView {
     fun hideMicInput()
     fun showMicInput()
     fun addTTSBubble(speechItem: SpeechItem)
-
+    fun showDialog(dialogType:String)
 }

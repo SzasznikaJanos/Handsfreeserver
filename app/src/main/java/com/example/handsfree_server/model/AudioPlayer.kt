@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.media.MediaPlayer
 import android.net.Uri
-import android.os.Build
+
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
@@ -17,17 +17,18 @@ import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 
 class AudioPlayer(private val context: Context) : CoroutineScope {
-    
 
-        companion object {
 
-            const val AUDIO_ID_START_RECOGNITION = 0
-            const val AUDIO_ID_PLAY_FEEDBACK = 1
-            const val AUDIO_ID_PLAY_OUTPUTS  =2
-            const val AUDIO_ID_NEW_REQUEST  = 3
-        }
+    companion object {
 
-    
+        const val AUDIO_ID_START_RECOGNITION = 0
+        const val AUDIO_ID_PLAY_FEEDBACK = 1
+        const val AUDIO_ID_PLAY_OUTPUTS = 2
+        const val AUDIO_ID_NEW_REQUEST = 3
+        const val AUDIO_ID_SHOW_DIALOG = 4
+    }
+
+
     private var job = SupervisorJob()
 
 
@@ -47,7 +48,6 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
     private val mediaPlayer = MediaPlayer()
 
 
-
     private var outputs: List<Output> = mutableListOf()
     private var outPutPosition = 0
 
@@ -55,9 +55,9 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
     init {
         mediaPlayer.setOnCompletionListener {
 
-            if(outPutPosition in 0 until outputs.size){
+            if (outPutPosition in 0 until outputs.size) {
                 handleConsecutivePlay()
-            }else {
+            } else {
                 audioPlayerListener?.onAudioCompleted(audioId)
             }
 
@@ -76,7 +76,7 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
     }
 
 
-    private fun prepareMediaPlayerForStart( uri: Uri, isLocal: Boolean = true) {
+    private fun prepareMediaPlayerForStart(uri: Uri, isLocal: Boolean = false) {
         job = Job()
         launch {
             stop()
@@ -103,16 +103,17 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
 
     fun play(@RawRes resId: Int, audioId: Int) {
         this.audioId = audioId
-        prepareMediaPlayerForStart( getUriFromResId(resId))
+        prepareMediaPlayerForStart(getUriFromResId(resId), isLocal = true)
     }
 
     fun play(outputs: List<Output>, audioId: Int) {
+        Log.d("AudioPlayer", "playing with action id: $audioId ")
         this.outputs = outputs
-        outPutPosition = 0
         this.audioId = audioId
-        prepareMediaPlayerForStart( outputs.first().audio.toUri())
-    }
+        outPutPosition = 0
 
+        prepareMediaPlayerForStart(outputs.first().audio.toUri())
+    }
 
 
     private fun handleConsecutivePlay() {

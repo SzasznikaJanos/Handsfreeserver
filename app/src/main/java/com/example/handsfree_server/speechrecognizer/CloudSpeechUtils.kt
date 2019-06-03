@@ -2,7 +2,7 @@ package com.example.handsfree_server.speechrecognizer
 
 
 import android.util.Log
-import com.example.handsfree_server.api.HandsfreeClient
+import com.example.handsfree_server.api.HandsFreeClient
 import com.example.handsfree_server.speechrecognizer.SpeechRecognizer.Companion.recognizedText
 import com.google.auth.oauth2.AccessToken
 import com.google.auth.oauth2.GoogleCredentials
@@ -29,7 +29,7 @@ object CloudSpeechUtils {
     suspend fun createGoogleCredentials(): GoogleCredentials? {
 
 
-        val credentialsResponse = HandsfreeClient.client.getCredentialsAsync().await()
+        val credentialsResponse = HandsFreeClient.client.getCredentialsAsync().await()
 
         if (credentialsResponse.code() != 200) {
             credentialsResponse.errorBody()?.let {
@@ -82,13 +82,12 @@ object CloudSpeechUtils {
     fun buildResponseObserver(speechListener: SpeechRecognizer.SpeechListener?): StreamObserver<StreamingRecognizeResponse> =
             object : StreamObserver<StreamingRecognizeResponse> {
                 override fun onNext(response: StreamingRecognizeResponse) {
-                    synchronized(SpeechService.LOCK) {
                         SpeechResponse.fromApiResponse(response)?.let { speechListener?.onSpeechRecognized(it) }
-                    }
                 }
 
                 override fun onError(t: Throwable) {
                     Log.e(TAG, "Error calling the API.", t)
+                    t.printStackTrace()
                 }
 
                 override fun onCompleted() {

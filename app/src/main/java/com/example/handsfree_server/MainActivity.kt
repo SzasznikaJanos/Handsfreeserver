@@ -31,6 +31,7 @@ import kotlin.coroutines.CoroutineContext
 class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
 
 
+    private var _dialog: PopupDialog? = null
     private val adapter by lazy { Adapter() }
 
     private val layoutManager by lazy {
@@ -56,10 +57,17 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         viewModel.recognizedTextLiveData.observe(this, androidx.lifecycle.Observer {
             speechRecognized_textView.text = it
         })
-
     }
 
 
+    override fun showDialog(dialogType: String) {
+        when(dialogType){
+            "stop" -> createAndShowDialog("Stopped","Start"){
+                it.dismiss()
+                viewModel.emptyRequest()
+            }
+        }
+    }
     override fun hideMicInput() = runOnUiThread {
         mic_input_imageView.visibility = View.INVISIBLE
     }
@@ -79,6 +87,18 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         }
     }
 
+
+    private fun createAndShowDialog(messageText: String, buttonText: String, onCancelCallBack: (dialog: PopupDialog) -> Unit) {
+        runOnUiThread {
+            if (_dialog?.isShowing() == true) _dialog?.dismiss()
+            PopupDialog().apply {
+                message = messageText
+                this.buttonText = buttonText
+                onDismissCallBack = { onCancelCallBack(this) }
+                _dialog = this
+            }.show(supportFragmentManager, "Dialog")
+        }
+    }
 
     private fun scrollToPositionIfNeed(scrollImmediately: Boolean) {
         val positionToScroll = if (adapter.itemCount < 1) return else adapter.itemCount - 1

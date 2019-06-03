@@ -151,15 +151,14 @@ class SpeechService :Service(), CoroutineScope {
      * @param size The number of elements that are actually relevant in the `data`.
      */
     fun recognize(data: ByteArray?, size: Int) {
-        synchronized(LOCK) {
-            if (mRequestObserver == null) return
 
+            if (mRequestObserver == null) return
             // Call the streaming recognition API
             if (data != null) {
                 val streamingRecognizeRequest = buildStreamingRequest(data, size)
                 mRequestObserver?.onNext(streamingRecognizeRequest)
             }
-        }
+
     }
 
     private fun buildStreamingRequest(data: ByteArray?, size: Int): StreamingRecognizeRequest? {
@@ -173,11 +172,11 @@ class SpeechService :Service(), CoroutineScope {
      * Finishes recognizing speech audio.
      */
     fun finishRecognizing() {
-        synchronized(LOCK) {
+        Log.d("SpeechRecognition", "finishRecognizing")
             if (mRequestObserver == null) return
             mRequestObserver?.onCompleted()
             mRequestObserver = null
-        }
+
 
     }
 }

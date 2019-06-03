@@ -1,15 +1,13 @@
 package com.example.handsfree_server.api
 
-import com.google.api.AnnotationsProto.http
 import com.jakewharton.retrofit2.adapter.kotlin.coroutines.CoroutineCallAdapterFactory
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.Executors
 
-object HandsfreeClient {
+object HandsFreeClient {
 
-    private const val BASE_URL = "https://6d31f60e.ngrok.io///"
-
+    private const val BASE_URL = "https://e4098be7.ngrok.io"
 
     private val retrofit by lazy {
         Retrofit.Builder().baseUrl(BASE_URL)

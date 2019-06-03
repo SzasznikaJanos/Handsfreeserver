@@ -40,9 +40,9 @@ import kotlin.coroutines.CoroutineContext
 class VoiceRecorder internal constructor(private val mCallback: Callback) : CoroutineScope {
 
 
+    private val LOCK by lazy { Any() }
+
     companion object {
-
-
         private val SAMPLE_RATE_CANDIDATES = intArrayOf(16000, 11025, 22050, 44100, 48000)
         private const val CHANNEL = AudioFormat.CHANNEL_IN_MONO
         private const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
@@ -113,19 +113,19 @@ class VoiceRecorder internal constructor(private val mCallback: Callback) : Coro
      */
     fun start() {
         // Try to create a new recording session.
-            stop = false
+        stop = false
 
 
-            if (mAudioRecord == null) {
-                try {
-                    mAudioRecord = createAudioRecord()
-                } catch (e: RuntimeException) {
-                    Log.e(TAG, "Cannot instantiate VoiceRecorder", e)
-                }
+        if (mAudioRecord == null) {
+            try {
+                mAudioRecord = createAudioRecord()
+            } catch (e: RuntimeException) {
+                Log.e(TAG, "Cannot instantiate VoiceRecorder", e)
             }
+        }
 
-            mAudioRecord?.startRecording()
-            analyzeVoice()
+        mAudioRecord?.startRecording()
+        analyzeVoice()
     }
 
     /**
@@ -133,14 +133,16 @@ class VoiceRecorder internal constructor(private val mCallback: Callback) : Coro
      */
 
     fun stop() {
-        Log.d(TAG, "stopping audio record")
-        stop = true
-        if (mAudioRecord != null) {
-            dismiss()
-            mAudioRecord?.stop()
-        }
+        synchronized(LOCK) {
+            Log.d(TAG, "stopping audio record")
+            stop = true
+            if (mAudioRecord != null) {
+                dismiss()
+                mAudioRecord?.stop()
+            }
 
-        mBuffer = null
+            mBuffer = null
+        }
     }
 
 
@@ -167,8 +169,10 @@ class VoiceRecorder internal constructor(private val mCallback: Callback) : Coro
             if (sizeInBytes == AudioRecord.ERROR_BAD_VALUE) {
                 continue
             }
-            val audioRecord = AudioRecord(MediaRecorder.AudioSource.MIC,
-                    sampleRate, CHANNEL, ENCODING, sizeInBytes)
+            val audioRecord = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                sampleRate, CHANNEL, ENCODING, sizeInBytes
+            )
             if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
                 mBuffer = ByteArray(sizeInBytes)
                 return audioRecord
@@ -183,25 +187,27 @@ class VoiceRecorder internal constructor(private val mCallback: Callback) : Coro
     private fun analyzeVoice() {
         launch {
             while (!stop) {
-                mBuffer?.let {
-                    val size = mAudioRecord?.read(it, 0, it.size) ?: 0
-                    val now = System.currentTimeMillis()
-                    if (isHearingVoice(mBuffer, size)) {
-                        if (mLastVoiceHeardMillis == java.lang.Long.MAX_VALUE) {
-                            mVoiceStartedMillis = now
-                            mCallback.onVoiceStart()
-                        }
+                synchronized(LOCK) {
+                    mBuffer?.let {
+                        val size = mAudioRecord?.read(it, 0, it.size) ?: 0
+                        val now = System.currentTimeMillis()
+                        if (isHearingVoice(mBuffer, size)) {
+                            if (mLastVoiceHeardMillis == java.lang.Long.MAX_VALUE) {
+                                mVoiceStartedMillis = now
+                                mCallback.onVoiceStart()
+                            }
 
-                        mCallback.onVoice(it, size)
-                        mLastVoiceHeardMillis = now
-                        if (now - mVoiceStartedMillis > MAX_SPEECH_LENGTH_MILLIS) {
-                            end()
-                        }
-                    } else if (mLastVoiceHeardMillis != java.lang.Long.MAX_VALUE) {
-                        mCallback.onVoice(it, size)
+                            mCallback.onVoice(it, size)
+                            mLastVoiceHeardMillis = now
+                            if (now - mVoiceStartedMillis > MAX_SPEECH_LENGTH_MILLIS) {
+                                end()
+                            }
+                        } else if (mLastVoiceHeardMillis != java.lang.Long.MAX_VALUE) {
+                            mCallback.onVoice(it, size)
 
-                        if (now - mLastVoiceHeardMillis > SPEECH_TIMEOUT_MILLIS) {
-                            end()
+                            if (now - mLastVoiceHeardMillis > SPEECH_TIMEOUT_MILLIS) {
+                                end()
+                            }
                         }
                     }
                 }
@@ -232,8 +238,6 @@ class VoiceRecorder internal constructor(private val mCallback: Callback) : Coro
         }
         return false
     }
-
-
 
 
 }

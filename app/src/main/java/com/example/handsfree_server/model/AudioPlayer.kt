@@ -21,6 +21,7 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
 
     companion object {
 
+        const val AUDIO_ID_READBACK: Int = 5
         const val AUDIO_ID_START_RECOGNITION = 0
         const val AUDIO_ID_PLAY_FEEDBACK = 1
         const val AUDIO_ID_PLAY_OUTPUTS = 2
@@ -115,6 +116,10 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
         prepareMediaPlayerForStart(outputs.first().audio.toUri())
     }
 
+    fun playReadback(audioLink: String, audioActionId: Int) {
+        this.audioId = audioActionId
+        prepareMediaPlayerForStart(Uri.parse(audioLink), false)
+    }
 
     private fun handleConsecutivePlay() {
         outPutPosition++
@@ -172,4 +177,6 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
         }
         return -1
     }
+
+
 }

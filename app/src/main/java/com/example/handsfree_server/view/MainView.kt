@@ -9,4 +9,10 @@ interface MainView {
     fun showMicInput()
     fun addTTSBubble(speechItem: SpeechItem)
     fun showDialog(dialogType:String)
+
+    fun showRecogButtons()
+
+    fun hideButtons()
+
+    fun updateQuizResult(speechItem: SpeechItem.MessageIcon?)
 }

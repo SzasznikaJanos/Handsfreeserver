@@ -37,6 +37,16 @@ class Adapter : RecyclerView.Adapter<Adapter.ViewHolder>() {
         notifyItemInserted(speechItems.size - 1)
     }
 
+    fun updateResultIcon(resultIcon: SpeechItem.MessageIcon?) {
+        speechItems.last { it.type == SpeechType.SENT }
+            .let {
+                speechItems.remove(it)
+                it.messageIcon = resultIcon
+                speechItems.add(it)
+                notifyItemChanged(speechItems.lastIndex)
+            }
+    }
+
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
         private val speechTextView: TextView? = itemView.findViewById(R.id.speech_textView)
@@ -86,13 +96,13 @@ class Adapter : RecyclerView.Adapter<Adapter.ViewHolder>() {
 
         private fun setResultImage(currentItem: SpeechItem) {
             val messageIcon = currentItem.messageIcon
+
             if (messageIcon?.icon != null) {
                 resultImageView?.let {
                     resultImageView?.visibility = View.VISIBLE
                     val glideRequest = Glide.with(itemView).load(currentItem.messageIcon?.icon)
                     if (messageIcon.withCircleCrop) glideRequest.apply(RequestOptions().circleCrop())
                     glideRequest.into(it)
-
                 }
             } else {
                 resultImageView?.visibility = View.INVISIBLE

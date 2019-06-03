@@ -94,7 +94,6 @@ object CloudSpeechUtils {
                     Log.d(TAG, "onCompleted Thread: " + Thread.currentThread().name)
                     if (recognizedText.isNotBlank()) {
                         speechListener?.onCompleted(recognizedText)
-                        recognizedText = ""
                     }
 
                 }

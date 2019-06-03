@@ -1,17 +1,21 @@
 package com.example.handsfree_server
 
 import android.app.Application
+import android.speech.RecognitionListener
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 
 import androidx.lifecycle.MutableLiveData
 import com.example.handsfree_server.api.HandsFreeClient
 import com.example.handsfree_server.api.MainBody
+import com.example.handsfree_server.api.ReadbackBody
 import com.example.handsfree_server.model.AudioPlayer
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.model.SpeechType
 import com.example.handsfree_server.pojo.ResponseFromMainAPi
+import com.example.handsfree_server.speechrecognizer.Recognizer
 import com.example.handsfree_server.speechrecognizer.SpeechRecognizer
+import com.example.handsfree_server.speechrecognizer.SpeechRecognizer.Companion.recognizedText
 import com.example.handsfree_server.speechrecognizer.SpeechResponse
 import com.example.handsfree_server.util.toRequestBody
 import com.example.handsfree_server.view.MainView
@@ -21,7 +25,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
-class MainViewModel(private val mainView: MainView, application: Application) : AndroidViewModel(application),
+class MainViewModel(
+    private val mainView: MainView,
+    recognitionListener: RecognitionListener,
+    application: Application
+) : AndroidViewModel(application),
     CoroutineScope {
 
     private var job = SupervisorJob()
@@ -29,6 +37,8 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
         get() = Dispatchers.Main + job
 
     private val speechRecognizer by lazy { SpeechRecognizer() }
+
+    private val recognizer by lazy { Recognizer(application, recognitionListener) }
 
     private val locale: String  by lazy { java.util.TimeZone.getDefault().id }
 
@@ -43,6 +53,7 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
 
     private var cachedResponse: ResponseFromMainAPi? = null
 
+
     private val speechListener = object : SpeechRecognizer.SpeechListener {
 
 
@@ -50,18 +61,12 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
 
             stopSpeechListening()
             recognizedTextLiveData.postValue("")
-            CoroutineScope(Dispatchers.Main).launch {
-
-                val response =
-                    handsFreeApi.postMainAsync(MainBody("test", recognizedText, locale).toRequestBody()).await()
-                mainView.addTTSBubble(getResponseSpeechItem(response, recognizedText))
-                handleResponse(response)
-            }
+            handleReadBack()
         }
 
         override fun onSpeechRecognized(speechResponse: SpeechResponse) {
             if (isFinishing) return
-            SpeechRecognizer.recognizedText = speechResponse.speechResponseAsText
+            recognizedText = speechResponse.speechResponseAsText
             recognizedTextLiveData.postValue(speechResponse.speechResponseAsText)
             if (speechResponse.isFinal) stopSpeechListening()
         }
@@ -70,7 +75,7 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
             audioPlayer.audioPlayerListener = object : AudioPlayer.AudioPlayerListener {
                 override fun onAudioCompleted(audioId: Int) {
                     when (audioId) {
-                        AudioPlayer.AUDIO_ID_START_RECOGNITION -> startSpeechListening()
+                        AudioPlayer.AUDIO_ID_START_RECOGNITION -> mainView.showRecogButtons()//startSpeechListening()
                         AudioPlayer.AUDIO_ID_PLAY_FEEDBACK -> playAudioFeedBack(
                             cachedResponse!!.isCorrect!!,
                             AudioPlayer.AUDIO_ID_PLAY_OUTPUTS
@@ -78,6 +83,7 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
                         AudioPlayer.AUDIO_ID_PLAY_OUTPUTS -> playOutPuts()
                         AudioPlayer.AUDIO_ID_NEW_REQUEST -> emptyRequest()
                         AudioPlayer.AUDIO_ID_SHOW_DIALOG -> showDialog()
+                        AudioPlayer.AUDIO_ID_READBACK -> onSpeechEnd()
                     }
                 }
 
@@ -88,13 +94,13 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
 
     }
 
-    private fun getResponseSpeechItem(response: ResponseFromMainAPi, recognizedText: String): SpeechItem {
+    private fun getResponseSpeechItem(isCorrect: Boolean): SpeechItem.MessageIcon? {
         val messageIcon = when {
-            response.isCorrect == true -> SpeechItem.MessageIcon(R.drawable.logo_correct)
-            response.isCorrect == false -> SpeechItem.MessageIcon(R.drawable.logo_retry)
-            else -> null
+            isCorrect -> SpeechItem.MessageIcon(R.drawable.logo_correct)
+            else -> SpeechItem.MessageIcon(R.drawable.logo_retry)
+
         }
-        return SpeechItem(recognizedText, SpeechType.SENT, messageIcon)
+        return messageIcon //SpeechItem(recognizedText, SpeechType.SENT, messageIcon)
     }
 
 
@@ -112,6 +118,13 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
         }
     }
 
+    fun startRecognizer() {
+        cachedResponse?.let {
+            mainView.showMicInput()
+            recognizer.startListening(it.inputLang)
+        }
+    }
+
 
     fun startSpeechListening() {
 
@@ -125,16 +138,36 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
             cachedResponse?.inputHints ?: emptyList()
         )
 
-        cachedResponse = null
     }
 
     fun stopSpeechListening() {
         isFinishing = true
         speechRecognizer.stopVoiceRecorder()
         mainView.hideMicInput()
-
     }
 
+
+    fun handleReadBack() {
+        launch {
+            val response =
+                handsFreeApi.readback(ReadbackBody(cachedResponse!!.inputLang, recognizedText).toRequestBody()).await()
+            audioPlayer.playReadback(response.audioLink, AudioPlayer.AUDIO_ID_READBACK)
+            mainView.addTTSBubble(SpeechItem(recognizedText, SpeechType.SENT))
+        }
+    }
+
+    fun onSpeechEnd() {
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val response =
+                handsFreeApi.postMainAsync(MainBody("test", recognizedText, locale).toRequestBody()).await()
+            // mainView.addTTSBubble(getResponseSpeechItem(response, recognizedText))
+            if (response.isCorrect != null) {
+                mainView.updateQuizResult(getResponseSpeechItem(response.isCorrect))
+            }
+            handleResponse(response)
+        }
+    }
 
     fun playOutPuts() = audioPlayer.play(cachedResponse!!.output, getAudioAction())
 
@@ -167,8 +200,9 @@ class MainViewModel(private val mainView: MainView, application: Application) : 
         } else {
             playOutPuts()
         }
-
         isFinishing = true
+
+
     }
 
     fun start() {

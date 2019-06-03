@@ -4,6 +4,9 @@ import android.content.Context
 import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.SpeechRecognizer
+import android.util.Log
 
 
 import android.view.View
@@ -28,7 +31,7 @@ import java.util.*
 import kotlin.coroutines.CoroutineContext
 
 
-class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
+class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionListener {
 
 
     private var _dialog: PopupDialog? = null
@@ -41,7 +44,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
     private val viewModel: MainViewModel by lazy {
         ViewModelProviders.of(
             this@MainActivity,
-            MainViewModelFactory(this@MainActivity, this@MainActivity.application)
+            MainViewModelFactory(this@MainActivity, this@MainActivity,this@MainActivity.application)
         )[MainViewModel::class.java]
     }
 
@@ -57,28 +60,59 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         viewModel.recognizedTextLiveData.observe(this, androidx.lifecycle.Observer {
             speechRecognized_textView.text = it
         })
+
+        localTestButton.setOnClickListener {
+            viewModel.startRecognizer()
+            localTestButton.visibility = View.INVISIBLE
+            cloudTestButton.visibility = View.INVISIBLE
+        }
+
+        cloudTestButton.setOnClickListener {
+            viewModel.startSpeechListening()
+            cloudTestButton.visibility = View.INVISIBLE
+            localTestButton.visibility = View.INVISIBLE
+
+        }
     }
 
 
+    override fun updateQuizResult(resultIcon: SpeechItem.MessageIcon?) = runOnUiThread {
+        adapter.updateResultIcon(resultIcon)
+    }
+
+    override fun showRecogButtons() {
+        runOnUiThread {
+            localTestButton.visibility = View.VISIBLE
+            cloudTestButton.visibility = View.VISIBLE
+        }
+    }
+
+    override fun hideButtons() {
+        runOnUiThread {
+            localTestButton.visibility = View.INVISIBLE
+            cloudTestButton.visibility = View.INVISIBLE
+        }
+    }
+
     override fun showDialog(dialogType: String) {
-        when(dialogType){
-            "stop" -> createAndShowDialog("Stopped","Start"){
+        when (dialogType) {
+            "stop" -> createAndShowDialog("Stopped", "Start") {
                 it.dismiss()
                 viewModel.emptyRequest()
             }
         }
     }
+
     override fun hideMicInput() = runOnUiThread {
         mic_input_imageView.visibility = View.INVISIBLE
+        hideButtons()
     }
 
     override fun showMicInput() = runOnUiThread {
         mic_input_imageView.visibility = View.VISIBLE
     }
 
-
     override fun addTTSBubble(speechItem: SpeechItem) = addItem(speechItem)
-
 
     private fun addItem(speechItem: SpeechItem) {
         runOnUiThread {
@@ -87,8 +121,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         }
     }
 
-
-    private fun createAndShowDialog(messageText: String, buttonText: String, onCancelCallBack: (dialog: PopupDialog) -> Unit) {
+    private fun createAndShowDialog(
+        messageText: String,
+        buttonText: String,
+        onCancelCallBack: (dialog: PopupDialog) -> Unit
+    ) {
         runOnUiThread {
             if (_dialog?.isShowing() == true) _dialog?.dismiss()
             PopupDialog().apply {
@@ -161,4 +198,59 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView {
         super.onResume()
         scrollToPositionIfNeed(false)
     }
+
+
+    override fun onReadyForSpeech(params: Bundle?) {
+
+    }
+
+    override fun onRmsChanged(rmsdB: Float) {
+        //To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun onBufferReceived(buffer: ByteArray?) {
+
+    }
+
+    override fun onPartialResults(partialResults: Bundle?) {
+        if (partialResults != null && partialResults.containsKey(SpeechRecognizer.RESULTS_RECOGNITION)) {
+            val data = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            if (data != null) {
+                Log.d("Recognizer", "onPartialResults: $partialResults")
+                viewModel.recognizedTextLiveData.postValue(data.last())
+            }
+        }
+    }
+
+    override fun onEvent(eventType: Int, params: Bundle?) {
+
+    }
+
+    override fun onBeginningOfSpeech() {
+
+    }
+
+    override fun onEndOfSpeech() {
+        Log.d("Recognizer", "onEndOfSpeech: ")
+   //     viewModel.onSpeechEnd()
+    }
+
+    override fun onError(error: Int) {
+        Log.d("Recognizer", "onError: $error")
+    }
+
+    override fun onResults(results: Bundle?) {
+        if (results != null && results.containsKey(SpeechRecognizer.RESULTS_RECOGNITION)) {
+            val data = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+            if (data != null) {
+                Log.d("Recognizer", "onResults: $data")
+                val recognizedText = data.first()
+                viewModel.recognizedTextLiveData.postValue("")
+                com.example.handsfree_server.speechrecognizer.SpeechRecognizer.recognizedText = recognizedText
+                viewModel.handleReadBack()
+            }
+        }
+        hideMicInput()
+    }
+
 }

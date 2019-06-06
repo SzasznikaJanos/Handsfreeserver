@@ -1,15 +1,20 @@
 package com.example.handsfree_server
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
+import android.media.AudioManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
 import android.util.Log
 
 
 import android.view.View
+
 import androidx.lifecycle.ViewModelProviders
 
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -17,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.handsfree_server.adapters.Adapter
 
 import com.example.handsfree_server.model.SpeechItem
+import com.example.handsfree_server.speechrecognizer.Recognizer
 
 import com.example.handsfree_server.view.MainView
 import com.google.android.material.snackbar.Snackbar
@@ -33,7 +39,9 @@ import kotlin.coroutines.CoroutineContext
 
 class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionListener {
 
-
+    private val audioManager by lazy {
+        getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
     private var _dialog: PopupDialog? = null
     private val adapter by lazy { Adapter() }
 
@@ -41,12 +49,24 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         LinearLayoutManager(this, RecyclerView.VERTICAL, false)
     }
 
+    private var targetAudioLevel: Int = 0
+
+    private val volumeObserver by lazy {
+        VolumeObserver(this, Handler(Looper.getMainLooper()), object : OnVolumeChangeListener {
+            override fun onVolumeChanged(newValue: Int) {
+                targetAudioLevel = newValue
+            }
+        })
+    }
+
     private val viewModel: MainViewModel by lazy {
         ViewModelProviders.of(
             this@MainActivity,
-            MainViewModelFactory(this@MainActivity, this@MainActivity,this@MainActivity.application)
+            MainViewModelFactory(this@MainActivity, this@MainActivity, this@MainActivity.application)
         )[MainViewModel::class.java]
     }
+
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,12 +87,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
             cloudTestButton.visibility = View.INVISIBLE
         }
 
-        cloudTestButton.setOnClickListener {
-            viewModel.startSpeechListening()
-            cloudTestButton.visibility = View.INVISIBLE
-            localTestButton.visibility = View.INVISIBLE
+        targetAudioLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
 
-        }
+        applicationContext.contentResolver.registerContentObserver(
+            android.provider.Settings.System.CONTENT_URI,
+            true, volumeObserver
+        )
+
+
     }
 
 
@@ -163,7 +185,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
         val permissionHandler = object : PermissionHandler() {
             override fun onGranted() {
-                viewModel.bind(this@MainActivity.application)
+                viewModel.start()
             }
 
             override fun onDenied(context: Context?, deniedPermissions: ArrayList<String>?) =
@@ -201,11 +223,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
 
     override fun onReadyForSpeech(params: Bundle?) {
+        Log.d("Recognizer", "onReadyForSpeech: ")
 
     }
 
     override fun onRmsChanged(rmsdB: Float) {
-        //To change body of created functions use File | Settings | File Templates.
     }
 
     override fun onBufferReceived(buffer: ByteArray?) {
@@ -223,23 +245,31 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     }
 
     override fun onEvent(eventType: Int, params: Bundle?) {
-
+        Log.d("Recognizer", "onEvent: $eventType")
     }
 
     override fun onBeginningOfSpeech() {
-
+        Log.d("Recognizer", "onBeginningOfSpeech: ")
+        unMute()
     }
 
     override fun onEndOfSpeech() {
         Log.d("Recognizer", "onEndOfSpeech: ")
-   //     viewModel.onSpeechEnd()
     }
 
     override fun onError(error: Int) {
         Log.d("Recognizer", "onError: $error")
+        when (error) {
+            6 -> {
+                viewModel.retryListening()
+            }
+            7 -> handleSound()
+        }
+
     }
 
     override fun onResults(results: Bundle?) {
+        unMute()
         if (results != null && results.containsKey(SpeechRecognizer.RESULTS_RECOGNITION)) {
             val data = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (data != null) {
@@ -253,4 +283,31 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         hideMicInput()
     }
 
+    private fun handleSound() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        Log.d(
+            "audioManager",
+            "handle sound before mute level:${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}"
+        )
+        mute()
+        viewModel.startRecognizer()
+    }
+
+    fun mute() {
+        volumeObserver.withListening = false
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+    }
+
+    fun unMute() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        Log.d("audioManager", "unMute: level:$targetAudioLevel")
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetAudioLevel, 0)
+        volumeObserver.withListening = true
+        Log.d(
+            "audioManager",
+            "unMute: Stream level after umute: ${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}"
+        )
+
+    }
 }

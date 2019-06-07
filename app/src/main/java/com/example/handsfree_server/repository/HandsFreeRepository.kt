@@ -12,7 +12,7 @@ import com.example.handsfree_server.util.toRequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 
-class HandsFreeRepository {
+class  HandsFreeRepository private constructor(){
 
 
     private val handsFreeApi by lazy {
@@ -20,7 +20,6 @@ class HandsFreeRepository {
     }
 
     companion object {
-
         private var INSTANCE: HandsFreeRepository? = null
 
         @Synchronized
@@ -29,8 +28,6 @@ class HandsFreeRepository {
         }
 
     }
-
-
     suspend fun sendResponseToServer(mainBody: MainBody): ServerResult<ResponseFromMainAPi> {
         val response = handsFreeApi.postMainAsync(mainBody.toRequestBody())
         return safeFetch(response, "Failed to communicate with server!")
@@ -81,6 +78,4 @@ class HandsFreeRepository {
             ServerResult.Error(error)
         }
     }
-
-
 }

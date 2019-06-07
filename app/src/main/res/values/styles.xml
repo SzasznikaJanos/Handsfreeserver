@@ -9,4 +9,17 @@
         <item name="android:textColor">@android:color/white</item>
     </style>
 
+
+    <style name="mainButtonsStyle">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:layout_marginEnd">@dimen/margin_small</item>
+        <item name="android:layout_gravity">center</item>
+
+        <item name="android:background">@drawable/drawable_button</item>
+        <item name="android:elevation">@dimen/button_elevation</item>
+    </style>
+
 </resources>

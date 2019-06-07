@@ -13,10 +13,10 @@ import android.util.Log
 class Recognizer(val context: Context, private val listener: RecognitionListener) {
 
 
-    val TAG ="Recognizer"
 
-
-
+companion object {
+    var recognizedText: String = ""
+}
     private var speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
 
     init {
@@ -32,6 +32,7 @@ class Recognizer(val context: Context, private val listener: RecognitionListener
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS,10000)
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS,10000)
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"fr-FR")
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
         recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageCode)
         speechRecognizer.startListening(recognizerIntent)

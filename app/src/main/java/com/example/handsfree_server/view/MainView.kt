@@ -10,7 +10,7 @@ interface MainView {
     fun addTTSBubble(speechItem: SpeechItem)
     fun showDialog(dialogType:String)
 
-    fun showRecogButtons()
+    fun shotButtons()
 
     fun hideButtons()
 

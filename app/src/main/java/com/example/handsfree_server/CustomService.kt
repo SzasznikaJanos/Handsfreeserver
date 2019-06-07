@@ -15,7 +15,8 @@ import com.example.handsfree_server.pojo.ReadBackResponse
 import com.example.handsfree_server.pojo.ResponseFromMainAPi
 import com.example.handsfree_server.repository.HandsFreeRepository
 import com.example.handsfree_server.speechrecognizer.Recognizer
-import com.example.handsfree_server.speechrecognizer.SpeechRecognizer.Companion.recognizedText
+import com.example.handsfree_server.speechrecognizer.Recognizer.Companion.recognizedText
+
 import com.example.handsfree_server.util.ServerResult
 
 import com.example.handsfree_server.view.MainView

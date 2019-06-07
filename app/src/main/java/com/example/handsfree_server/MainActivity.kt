@@ -5,26 +5,22 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.graphics.Color
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
+
 import android.media.AudioManager
 import android.os.*
 import androidx.appcompat.app.AppCompatActivity
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
 import android.util.Log
-
-
 import android.view.View
-
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.handsfree_server.adapters.Adapter
 import com.example.handsfree_server.model.AudioPlayer
 
 import com.example.handsfree_server.model.SpeechItem
+import com.example.handsfree_server.presenter.Presenter
 import com.example.handsfree_server.speechrecognizer.Recognizer
-import com.example.handsfree_server.speechrecognizer.SpeechRecognizer.Companion.recognizedText
 
 import com.example.handsfree_server.view.MainView
 import com.google.android.material.snackbar.Snackbar
@@ -72,22 +68,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     }
 
-
-    val audioAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_GAME)
-        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-        .build()
-
-    val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(audioAttributes)
-            .setAcceptsDelayedFocusGain(true)
-            .setOnAudioFocusChangeListener(this, Handler(Looper.getMainLooper()))
-            .build()
-    } else {
-        TODO("VERSION.SDK_INT < O")
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -101,9 +81,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         })
 
         targetAudioLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            audioManager.requestAudioFocus(focusRequest)
-        }
 
         applicationContext.contentResolver.registerContentObserver(
             android.provider.Settings.System.CONTENT_URI,
@@ -119,14 +96,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     }
 
     override fun hideErrorMessage() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
     }
 
-    override fun updateQuizResult(resultIcon: SpeechItem.MessageIcon?) = runOnUiThread {
-        adapter.updateResultIcon(resultIcon)
+    override fun updateQuizResult(speechItem: SpeechItem.MessageIcon?) = runOnUiThread {
+        adapter.updateResultIcon(speechItem)
     }
 
-    override fun showRecogButtons() {
+    override fun shotButtons() {
 
     }
 
@@ -243,7 +220,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     override fun onReadyForSpeech(params: Bundle?) {
         Log.d("Recognizer", "onReadyForSpeech: ")
 
-        if (switch1.isChecked) unMute()
+
     }
 
     override fun onRmsChanged(rmsdB: Float) {
@@ -269,7 +246,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     override fun onBeginningOfSpeech() {
         Log.d("Recognizer", "onBeginningOfSpeech: ")
-        if (switch1.isChecked) unMute()
+
     }
 
     override fun onEndOfSpeech() {
@@ -278,77 +255,39 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     override fun onError(error: Int) {
         Log.d("Recognizer", "onError: $error")
+        presenter.recognizedTextLiveData.value = ""
+
         when (error) {
-            6 -> {
-                customService?.resetRecognizer()
-                if (switch1.isChecked) {
-                    handleSound()
-                } else {
-                    customService?.handleTimeOut()
-                }
-            }
-            7 -> {
-                if (switch1.isChecked) {
-                    handleSound()
-                } else {
-                    customService?.handleFallBack()
-                }
-            }
+            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> customService?.handleTimeOut()
+            SpeechRecognizer.ERROR_NO_MATCH -> customService?.handleFallBack()
         }
 
     }
 
 
-    fun getRecognizedText(results: List<String>, targetText: String) =
+    private fun getRecognizedText(results: List<String>, targetText: String) =
         results.find { it.toLowerCase() == targetText.toLowerCase() } ?: results[0]
 
 
     override fun onResults(results: Bundle?) {
-        if (switch1.isChecked) unMute()
+
         if (results != null && results.containsKey(SpeechRecognizer.RESULTS_RECOGNITION)) {
             val data = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (data != null) {
-
-
                 val recognizedText = customService?.hint?.let {
                     getRecognizedText(data, it)
                 } ?: data[0]
 
-                Log.d("Recognizer", "onResults: $data \n target: ${customService?.hint} \n recognizedText =$recognizedText")
+                Log.d(
+                    "Recognizer",
+                    "onResults: $data \n target: ${customService?.hint} \n recognizedText =$recognizedText"
+                )
                 presenter.recognizedTextLiveData.postValue("")
-                com.example.handsfree_server.speechrecognizer.SpeechRecognizer.recognizedText = recognizedText
+                Recognizer.recognizedText = recognizedText
                 presenter.handleReadBack()
             }
         }
         hideMicInput()
-    }
-
-    private fun handleSound() {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        Log.d(
-            "audioManager",
-            "handle sound before mute level:${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}"
-        )
-        mute()
-        presenter.startRecognizer()
-
-    }
-
-    fun mute() {
-        volumeObserver.withListening = false
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
-    }
-
-    fun unMute() {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetAudioLevel, 0)
-        volumeObserver.withListening = true
-        Log.d(
-            "audioManager",
-            "unMute: Stream level after umute: ${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}"
-        )
-
     }
 
     fun bind() {

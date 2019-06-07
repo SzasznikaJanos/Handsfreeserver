@@ -15,4 +15,8 @@ interface MainView {
     fun hideButtons()
 
     fun updateQuizResult(speechItem: SpeechItem.MessageIcon?)
+
+    fun showErrorMessage(errorMessage:String)
+
+    fun hideErrorMessage()
 }

@@ -31,7 +31,7 @@ class MainPresenter(
 
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main
-
+/*
 
     val handsFreeApi = HandsFreeClient.client
 
@@ -80,7 +80,7 @@ class MainPresenter(
             // mainView.addRecognizedSpeechBubble(recognizedText, true)
             launch {
                 val response =
-                    handsFreeApi.postMainAsync(MainBody("test", recognizedText, locale).toRequestBody()).await()
+                    handsFreeApi.postMainAsync(MainBody("test", recognizedText, locale).toRequestBody())
 
                 handleResponse(response)
             }
@@ -105,7 +105,7 @@ class MainPresenter(
 
     private fun emptyRequest() {
         launch {
-            val response = handsFreeApi.postMainAsync(MainBody("test", location = locale).toRequestBody()).await()
+            val response = handsFreeApi.postMainAsync(MainBody("test", location = locale).toRequestBody())
             handleResponse(response)
         }
     }
@@ -122,8 +122,8 @@ class MainPresenter(
 
     fun start() {
         launch {
-            handsFreeApi.initAsync().await()
-            val response = handsFreeApi.postMainAsync(MainBody("test", location = locale).toRequestBody()).await()
+            handsFreeApi.initAsync()
+            val response = handsFreeApi.postMainAsync(MainBody("test", location = locale).toRequestBody())
             handleResponse(response)
         }
     }
@@ -153,6 +153,6 @@ class MainPresenter(
 
 
     private fun playMicrophoneSound() = audioPlayer.play(R.raw.speak, -1)
-
+*/
 
 }

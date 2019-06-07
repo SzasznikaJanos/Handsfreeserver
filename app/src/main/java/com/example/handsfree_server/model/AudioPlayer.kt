@@ -72,6 +72,7 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
                 player.start()
             } catch (ex: Exception) {
                 Log.e(TAG, "playAudio: ", ex)
+
             }
         }
     }
@@ -91,6 +92,7 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
                 }
                 mediaPlayer.prepareAsync()
             } catch (exception: Exception) {
+                Log.d(TAG, "prepareMediaPlayerForStart: ${exception.message}")
                 exception.printStackTrace()
                 audioPlayerListener?.onAudioCompleted(audioId)
             }

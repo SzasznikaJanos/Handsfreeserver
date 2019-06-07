@@ -9,7 +9,8 @@ import android.os.Handler
 import android.util.Log
 
 
-class VolumeObserver(context: Context, handler: Handler, val listener: OnVolumeChangeListener) : ContentObserver(handler) {
+class VolumeObserver(context: Context, handler: Handler,
+                     private val listener: OnVolumeChangeListener) : ContentObserver(handler) {
 
     val TAG = "VolumeObserver"
     var withListening:Boolean = true

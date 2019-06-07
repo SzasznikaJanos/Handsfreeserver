@@ -1,13 +1,15 @@
 package com.example.handsfree_server
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.graphics.Color
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.os.*
 import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
 import android.util.Log
@@ -15,14 +17,14 @@ import android.util.Log
 
 import android.view.View
 
-import androidx.lifecycle.ViewModelProviders
-
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.handsfree_server.adapters.Adapter
+import com.example.handsfree_server.model.AudioPlayer
 
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.speechrecognizer.Recognizer
+import com.example.handsfree_server.speechrecognizer.SpeechRecognizer.Companion.recognizedText
 
 import com.example.handsfree_server.view.MainView
 import com.google.android.material.snackbar.Snackbar
@@ -37,12 +39,18 @@ import java.util.*
 import kotlin.coroutines.CoroutineContext
 
 
-class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionListener {
+class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionListener, ServiceConnection,
+    AudioManager.OnAudioFocusChangeListener {
+
+
+    private var customService: CustomService? = null
 
     private val audioManager by lazy {
         getSystemService(Context.AUDIO_SERVICE) as AudioManager
     }
+
     private var _dialog: PopupDialog? = null
+
     private val adapter by lazy { Adapter() }
 
     private val layoutManager by lazy {
@@ -59,15 +67,26 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         })
     }
 
-    private val viewModel: MainViewModel by lazy {
-        ViewModelProviders.of(
-            this@MainActivity,
-            MainViewModelFactory(this@MainActivity, this@MainActivity, this@MainActivity.application)
-        )[MainViewModel::class.java]
+    private val presenter: Presenter by lazy {
+        Presenter(this)
+
     }
 
 
+    val audioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_GAME)
+        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+        .build()
 
+    val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(audioAttributes)
+            .setAcceptsDelayedFocusGain(true)
+            .setOnAudioFocusChangeListener(this, Handler(Looper.getMainLooper()))
+            .build()
+    } else {
+        TODO("VERSION.SDK_INT < O")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,50 +96,49 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         mainRecycler.adapter = adapter
         checkPermissions()
 
-        viewModel.recognizedTextLiveData.observe(this, androidx.lifecycle.Observer {
+        presenter.recognizedTextLiveData.observe(this, androidx.lifecycle.Observer {
             speechRecognized_textView.text = it
         })
 
-        localTestButton.setOnClickListener {
-            viewModel.startRecognizer()
-            localTestButton.visibility = View.INVISIBLE
-            cloudTestButton.visibility = View.INVISIBLE
-        }
-
         targetAudioLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioManager.requestAudioFocus(focusRequest)
+        }
 
         applicationContext.contentResolver.registerContentObserver(
             android.provider.Settings.System.CONTENT_URI,
             true, volumeObserver
         )
-
-
     }
 
+    override fun showErrorMessage(errorMessage: String) {
+        hideMicInput()
+        mainRecycler.visibility = View.INVISIBLE
+        error_textView.visibility = View.VISIBLE
+        error_textView.text = errorMessage
+    }
+
+    override fun hideErrorMessage() {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    }
 
     override fun updateQuizResult(resultIcon: SpeechItem.MessageIcon?) = runOnUiThread {
         adapter.updateResultIcon(resultIcon)
     }
 
     override fun showRecogButtons() {
-        runOnUiThread {
-            localTestButton.visibility = View.VISIBLE
-            cloudTestButton.visibility = View.VISIBLE
-        }
+
     }
 
     override fun hideButtons() {
-        runOnUiThread {
-            localTestButton.visibility = View.INVISIBLE
-            cloudTestButton.visibility = View.INVISIBLE
-        }
+
     }
 
     override fun showDialog(dialogType: String) {
         when (dialogType) {
             "stop" -> createAndShowDialog("Stopped", "Start") {
                 it.dismiss()
-                viewModel.emptyRequest()
+                presenter.emptyRequest()
             }
         }
     }
@@ -185,7 +203,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
         val permissionHandler = object : PermissionHandler() {
             override fun onGranted() {
-                viewModel.start()
+                bind()
             }
 
             override fun onDenied(context: Context?, deniedPermissions: ArrayList<String>?) =
@@ -225,6 +243,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     override fun onReadyForSpeech(params: Bundle?) {
         Log.d("Recognizer", "onReadyForSpeech: ")
 
+        if (switch1.isChecked) unMute()
     }
 
     override fun onRmsChanged(rmsdB: Float) {
@@ -239,7 +258,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
             val data = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (data != null) {
                 Log.d("Recognizer", "onPartialResults: $partialResults")
-                viewModel.recognizedTextLiveData.postValue(data.last())
+                presenter.recognizedTextLiveData.postValue(data.last())
             }
         }
     }
@@ -250,7 +269,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     override fun onBeginningOfSpeech() {
         Log.d("Recognizer", "onBeginningOfSpeech: ")
-        unMute()
+        if (switch1.isChecked) unMute()
     }
 
     override fun onEndOfSpeech() {
@@ -261,23 +280,44 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         Log.d("Recognizer", "onError: $error")
         when (error) {
             6 -> {
-                viewModel.retryListening()
+                customService?.resetRecognizer()
+                if (switch1.isChecked) {
+                    handleSound()
+                } else {
+                    customService?.handleTimeOut()
+                }
             }
-            7 -> handleSound()
+            7 -> {
+                if (switch1.isChecked) {
+                    handleSound()
+                } else {
+                    customService?.handleFallBack()
+                }
+            }
         }
 
     }
 
+
+    fun getRecognizedText(results: List<String>, targetText: String) =
+        results.find { it.toLowerCase() == targetText.toLowerCase() } ?: results[0]
+
+
     override fun onResults(results: Bundle?) {
-        unMute()
+        if (switch1.isChecked) unMute()
         if (results != null && results.containsKey(SpeechRecognizer.RESULTS_RECOGNITION)) {
             val data = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (data != null) {
-                Log.d("Recognizer", "onResults: $data")
-                val recognizedText = data.first()
-                viewModel.recognizedTextLiveData.postValue("")
+
+
+                val recognizedText = customService?.hint?.let {
+                    getRecognizedText(data, it)
+                } ?: data[0]
+
+                Log.d("Recognizer", "onResults: $data \n target: ${customService?.hint} \n recognizedText =$recognizedText")
+                presenter.recognizedTextLiveData.postValue("")
                 com.example.handsfree_server.speechrecognizer.SpeechRecognizer.recognizedText = recognizedText
-                viewModel.handleReadBack()
+                presenter.handleReadBack()
             }
         }
         hideMicInput()
@@ -290,7 +330,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
             "handle sound before mute level:${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}"
         )
         mute()
-        viewModel.startRecognizer()
+        presenter.startRecognizer()
+
     }
 
     fun mute() {
@@ -301,7 +342,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     fun unMute() {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        Log.d("audioManager", "unMute: level:$targetAudioLevel")
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetAudioLevel, 0)
         volumeObserver.withListening = true
         Log.d(
@@ -309,5 +349,26 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
             "unMute: Stream level after umute: ${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}"
         )
 
+    }
+
+    fun bind() {
+        bindService(Intent(this, CustomService::class.java), this, Context.BIND_AUTO_CREATE)
+    }
+
+    override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+        service?.let {
+            customService = CustomService.fromBinder(this, service, AudioPlayer(this), Recognizer(this, this)).also {
+                presenter.service = it
+            }
+        }
+        presenter.start()
+    }
+
+    override fun onServiceDisconnected(name: ComponentName?) {
+        Log.d("Service", "onServiceDisconnected: ${name?.shortClassName}")
+    }
+
+    override fun onAudioFocusChange(focusChange: Int) {
+        Log.d("Focus changed", "onAudioFocusChange: $focusChange")
     }
 }

@@ -2,6 +2,7 @@
   <dictionary name="janos">
     <words>
       <w>coroutine</w>
+      <w>readback</w>
     </words>
   </dictionary>
 </component>

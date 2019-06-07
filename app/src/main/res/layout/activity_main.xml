@@ -18,6 +18,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <TextView
+    android:id="@+id/error_textView"
+    android:layout_height = "match_parent"
+    android:layout_width="match_parent"
+    android:textAlignment="center"
+    tools:text="Error occurred"
+    android:gravity="center"
+    android:visibility="gone"
+
+    />
+
 
     <TextView
         android:id="@+id/speechRecognized_textView"
@@ -47,23 +58,13 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         tools:visibility="visible" />
-    <Button
-            android:text="Cloud"
+    <Switch
+            android:text="Switch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/cloudTestButton" app:layout_constraintEnd_toStartOf="@+id/mic_input_imageView"
-            android:layout_marginEnd="8dp" app:layout_constraintStart_toStartOf="parent"
-            android:layout_marginStart="8dp" android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@+id/speechRecognized_textView" android:layout_marginBottom="8dp"
-            app:layout_constraintBottom_toBottomOf="parent" android:visibility="invisible"/>
-    <Button
-            android:text="Local"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/localTestButton" app:layout_constraintStart_toEndOf="@+id/mic_input_imageView"
-            android:layout_marginStart="8dp" app:layout_constraintEnd_toEndOf="parent" android:layout_marginEnd="8dp"
-            android:layout_marginTop="8dp" app:layout_constraintTop_toBottomOf="@+id/speechRecognized_textView"
-            android:layout_marginBottom="8dp" app:layout_constraintBottom_toBottomOf="parent"
-            android:visibility="invisible"/>
+            android:id="@+id/switch1" android:layout_marginTop="8dp"
+            app:layout_constraintTop_toTopOf="@+id/mic_input_imageView" app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginEnd="8dp" app:layout_constraintStart_toEndOf="@+id/mic_input_imageView"
+            android:layout_marginStart="8dp"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

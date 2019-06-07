@@ -29,12 +29,12 @@ object CloudSpeechUtils {
     suspend fun createGoogleCredentials(): GoogleCredentials? {
 
 
-        val credentialsResponse = HandsFreeClient.client.getCredentialsAsync().await()
+        val credentialsResponse = HandsFreeClient.client.getCredentialsAsync()
 
         if (credentialsResponse.code() != 200) {
             credentialsResponse.errorBody()?.let {
                 Log.e(TAG, "createAccessTokenForGrpcApi: Failed to load credentials from server!")
-                Log.e(TAG, "createGoogleCredentials: ${it.string()}} ")
+
             }
         } else {
             val credentials = credentialsResponse.body()?.bytes()

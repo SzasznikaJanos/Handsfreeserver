@@ -50,7 +50,7 @@ http://developer.android.com/guide/topics/appwidgets/index.html#CreatingLayout
     <dimen name="speech_text_size">16sp</dimen>
     <dimen name="image_result_size">24dp</dimen>
     <dimen name="spinner_size">24dp</dimen>
-    <dimen name="padding_topic_recycler">12dp</dimen>
+
     <dimen name="card_label_size">22sp</dimen>
     <dimen name="progress_subtitle_size">16sp</dimen>
     <dimen name="progress_title_size">30sp</dimen>

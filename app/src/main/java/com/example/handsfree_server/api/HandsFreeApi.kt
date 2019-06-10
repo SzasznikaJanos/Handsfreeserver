@@ -13,6 +13,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 
 interface HandsFreeApi {
@@ -21,8 +22,8 @@ interface HandsFreeApi {
     suspend fun postMainAsync(@Body body: RequestBody): Response<ResponseFromMainAPi>
 
 
-    @GET("/init/test")
-    suspend fun initAsync(): Response<ResponseBody>
+    @GET("/init/{user}")
+    suspend fun initAsync(@Path("user") user:String): Response<ResponseBody>
 
     @GET("/creds")
     suspend fun getCredentialsAsync(): Response<ResponseBody>
@@ -30,10 +31,10 @@ interface HandsFreeApi {
     @POST("/readback")
     suspend fun readback(@Body body: RequestBody): Response<ReadBackResponse>
 
-    @GET("/fallback/test")
-    suspend fun getFallBackMessage(): Response<ReadBackResponse>
+    @GET("/fallback/{user}")
+    suspend fun getFallBackMessage(@Path("user")user:String): Response<ReadBackResponse>
 
 
-    @GET("/timeout/test")
-    suspend fun getTimeOut(): Response<ReadBackResponse>
+    @GET("/timeout/{user}")
+    suspend fun getTimeOut(@Path("user")user:String): Response<ReadBackResponse>
 }

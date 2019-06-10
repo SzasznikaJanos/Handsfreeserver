@@ -11,11 +11,17 @@ import android.os.*
 import androidx.appcompat.app.AppCompatActivity
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
+import android.system.Os.bind
+
 import android.util.Log
 import android.view.View
+import android.widget.Button
+import android.widget.Toast
+
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.handsfree_server.adapters.Adapter
+import com.example.handsfree_server.adapters.TopicAdapter
 import com.example.handsfree_server.model.AudioPlayer
 
 import com.example.handsfree_server.model.SpeechItem
@@ -28,6 +34,7 @@ import com.nabinbhandari.android.permissions.PermissionHandler
 import com.nabinbhandari.android.permissions.Permissions
 
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.layout_buttons.*
 import kotlinx.coroutines.*
 import java.util.*
 
@@ -36,6 +43,7 @@ import kotlin.coroutines.CoroutineContext
 
 
 class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionListener, ServiceConnection,
+    View.OnClickListener,
     AudioManager.OnAudioFocusChangeListener {
 
 
@@ -51,6 +59,14 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     private val layoutManager by lazy {
         LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+    }
+
+    private val topicAdapter by lazy {
+        TopicAdapter {
+            customService?.stopRecognizing()
+            presenter.handleReadBack(it)
+            Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private var targetAudioLevel: Int = 0
@@ -74,6 +90,11 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
         mainRecycler.layoutManager = layoutManager
         mainRecycler.adapter = adapter
+        //itemAnimator
+
+        topicsRecyclerView.adapter = topicAdapter
+
+
         checkPermissions()
 
         presenter.recognizedTextLiveData.observe(this, androidx.lifecycle.Observer {
@@ -86,13 +107,58 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
             android.provider.Settings.System.CONTENT_URI,
             true, volumeObserver
         )
+
+        pauseButton.setOnClickListener {
+            if (pauseButton.text.toString() == "Pause") {
+                customService?.stopRecognizing()
+                customService?.stopAudio()
+                hideTopicRecyclerView()
+                hideMicInput()
+
+                pauseButton.text = "Resume"
+            } else {
+                presenter.emptyRequest()
+                pauseButton.text = "Pause"
+            }
+        }
+
+        button_one.setOnClickListener(this)
+        button_two.setOnClickListener(this)
+        button_three.setOnClickListener(this)
+        button_four.setOnClickListener(this)
+    }
+
+    override fun onClick(v: View?) {
+        when (v?.id) {
+            R.id.button_one, R.id.button_two, R.id.button_three, R.id.button_four -> handleButtonEvent((v as Button).text.toString())
+        }
+    }
+
+    private fun handleButtonEvent(text: String) {
+        customService?.stopRecognizing()
+        customService?.stopAudio()
+        hideTopicRecyclerView()
+        hideMicInput()
+        presenter.handleReadBack(text)
     }
 
     override fun showErrorMessage(errorMessage: String) {
-        hideMicInput()
-        mainRecycler.visibility = View.INVISIBLE
-        error_textView.visibility = View.VISIBLE
-        error_textView.text = errorMessage
+        runOnUiThread {
+            hideTopicRecyclerView()
+            hideMicInput()
+            mainRecycler.visibility = View.INVISIBLE
+            error_textView.visibility = View.VISIBLE
+            error_textView.text = errorMessage
+        }
+    }
+
+    override fun showTopicRecyclerView(topics: List<String>) {
+        topicAdapter.setTopics(topics)
+        topicsRecyclerView.visibility = View.VISIBLE
+    }
+
+    override fun hideTopicRecyclerView() {
+        topicsRecyclerView.visibility = View.INVISIBLE
     }
 
     override fun hideErrorMessage() {
@@ -103,12 +169,29 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         adapter.updateResultIcon(speechItem)
     }
 
-    override fun shotButtons() {
-
+    override fun showButtons(buttonTexts: List<String>) = runOnUiThread {
+        return@runOnUiThread
+        buttonsLayout.visibility = View.VISIBLE
+        for (i in 0..4) {
+            val buttonText = buttonTexts.elementAtOrNull(i)
+            val button = when (i) {
+                0 -> button_one
+                1 -> button_two
+                2 -> button_three
+                else -> button_four
+            }
+            setButtonTextAndVisibility(button, buttonText)
+        }
     }
 
-    override fun hideButtons() {
+    private fun setButtonTextAndVisibility(button: Button, text: String?) {
+        button.visibility = if (text.isNullOrBlank()) View.GONE else View.VISIBLE
+        button.text = text
+    }
 
+    override fun hideButtons() = runOnUiThread {
+        return@runOnUiThread
+        buttonsLayout.visibility = View.GONE
     }
 
     override fun showDialog(dialogType: String) {
@@ -216,6 +299,10 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         scrollToPositionIfNeed(false)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        unbind()
+    }
 
     override fun onReadyForSpeech(params: Bundle?) {
         Log.d("Recognizer", "onReadyForSpeech: ")
@@ -264,10 +351,8 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     }
 
-
     private fun getRecognizedText(results: List<String>, targetText: String) =
         results.find { it.toLowerCase() == targetText.toLowerCase() } ?: results[0]
-
 
     override fun onResults(results: Bundle?) {
 
@@ -282,16 +367,21 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
                     "Recognizer",
                     "onResults: $data \n target: ${customService?.hint} \n recognizedText =$recognizedText"
                 )
-                presenter.recognizedTextLiveData.postValue("")
-                Recognizer.recognizedText = recognizedText
-                presenter.handleReadBack()
+
+
+                presenter.handleReadBack(recognizedText)
             }
         }
+        hideTopicRecyclerView()
         hideMicInput()
     }
 
     fun bind() {
         bindService(Intent(this, CustomService::class.java), this, Context.BIND_AUTO_CREATE)
+    }
+
+    fun unbind() {
+        unbindService(this)
     }
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -310,4 +400,6 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     override fun onAudioFocusChange(focusChange: Int) {
         Log.d("Focus changed", "onAudioFocusChange: $focusChange")
     }
+
+
 }

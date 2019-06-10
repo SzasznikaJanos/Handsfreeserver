@@ -15,7 +15,7 @@ import com.example.handsfree_server.pojo.ReadBackResponse
 import com.example.handsfree_server.pojo.ResponseFromMainAPi
 import com.example.handsfree_server.repository.HandsFreeRepository
 import com.example.handsfree_server.speechrecognizer.Recognizer
-import com.example.handsfree_server.speechrecognizer.Recognizer.Companion.recognizedText
+
 
 import com.example.handsfree_server.util.ServerResult
 
@@ -30,7 +30,9 @@ class CustomService : Service(), CoroutineScope {
 
 
     override val coroutineContext: CoroutineContext
-        get() = Dispatchers.Main
+        get() = Dispatchers.Default
+
+    private val user = "test-Tudor"
 
 
     private val locale: String  by lazy { java.util.TimeZone.getDefault().id }
@@ -52,10 +54,10 @@ class CustomService : Service(), CoroutineScope {
 
     companion object {
         fun fromBinder(
-            mainVIew: MainView,
-            binder: IBinder,
-            audioPlayer: AudioPlayer,
-            recognizer: Recognizer
+                mainVIew: MainView,
+                binder: IBinder,
+                audioPlayer: AudioPlayer,
+                recognizer: Recognizer
         ): CustomService = (binder as CustomBinder).service.apply {
 
             this.mainView = mainVIew
@@ -68,13 +70,13 @@ class CustomService : Service(), CoroutineScope {
                     when (audioId) {
                         AudioPlayer.AUDIO_ID_START_RECOGNITION -> startRecognizing()
                         AudioPlayer.AUDIO_ID_PLAY_FEEDBACK -> playAudioFeedBack(
-                            cachedResponse!!.isCorrect!!,
-                            AudioPlayer.AUDIO_ID_PLAY_OUTPUTS
+                                cachedResponse!!.isCorrect!!,
+                                AudioPlayer.AUDIO_ID_PLAY_OUTPUTS
                         )
                         AudioPlayer.AUDIO_ID_PLAY_OUTPUTS -> playOutPuts()
                         AudioPlayer.AUDIO_ID_NEW_REQUEST -> emptyRequest()
                         AudioPlayer.AUDIO_ID_SHOW_DIALOG -> mainView.showDialog(cachedResponse!!.dialogType!!)
-                        AudioPlayer.AUDIO_ID_READBACK -> onSpeechEnd()
+                        AudioPlayer.AUDIO_ID_READBACK -> handleResponse(cachedResponse!!)
                     }
                 }
 
@@ -95,10 +97,11 @@ class CustomService : Service(), CoroutineScope {
 
     fun startRecognizing() {
         mainView.showMicInput()
+        mainView.showButtons(listOf("help", "pause", "skip", "stop"))
         recognizer?.startListening(cachedResponse!!.inputLang)
     }
 
-    //fun stopRecognizing() = recognizer?.stop()
+    fun stopRecognizing() = recognizer?.stop()
 
     fun resetRecognizer() {
         recognizer?.stop()
@@ -108,26 +111,48 @@ class CustomService : Service(), CoroutineScope {
 
 
     private fun playReadBack(response: ReadBackResponse) =
-        audioPlayer?.playReadback(response.audioLink, AudioPlayer.AUDIO_ID_READBACK)
+            audioPlayer?.playReadback(response.audioLink, AudioPlayer.AUDIO_ID_READBACK)
 
 
-    fun handleReadBack(mainView: MainView) {
+    fun handleReadBack(userResponse: String) {
         launch {
+            safeResponse(repository.sendResponseToServer(MainBody(user, userResponse, locale))) {
 
-            safeResponse(repository.getReadBackMessage(ReadbackBody(cachedResponse!!.inputLang, recognizedText))) {
-                playReadBack(it)
+                val readBackTextRequest =
+                        if (it.isCorrect != true || cachedResponse?.readBackText.isNullOrBlank())
+                userResponse else
+                    cachedResponse?.readBackText
+
+                val isCorrect = it.isCorrect
+
+
+                launch {
+                    safeResponse(repository.getReadBackMessage(ReadbackBody(cachedResponse!!.inputLang,
+                            readBackTextRequest))) { readbackResponse ->
+
+
+                        val messageIcon = isCorrect?.let { getResponseSpeechItem(isCorrect) }
+                        Log.d("Test", "handleReadBack: adding bubble text:$readBackTextRequest")
+                        mainView.addTTSBubble(SpeechItem(readBackTextRequest, SpeechType.SENT, messageIcon))
+                        cachedResponse = it
+                        playReadBack(readbackResponse)
+                    }
+                }
             }
-
-            mainView.addTTSBubble(SpeechItem(recognizedText, SpeechType.SENT))
         }
     }
 
 
     private fun handleResponse(response: ResponseFromMainAPi) {
 
-        cachedResponse = response
+        if (!response.output.isNullOrEmpty()) {
+            val withOption = response.output.find { !it.options.isNullOrEmpty() }
+            if (withOption != null) {
+                mainView.showTopicRecyclerView(withOption.options)
+            }
+        }
 
-        Log.d("API", "handleResponse: $response")
+
         if (response.isCorrect != null) {
             playAudioFeedBack(response.isCorrect, AudioPlayer.AUDIO_ID_PLAY_OUTPUTS)
         } else {
@@ -137,8 +162,8 @@ class CustomService : Service(), CoroutineScope {
     }
 
     fun playAudioFeedBack(isCorrect: Boolean, audioId: Int) =
-        if (isCorrect) audioPlayer?.play(R.raw.fast_correct, audioId)
-        else audioPlayer?.play(R.raw.fast_incorrect, audioId)
+            if (isCorrect) audioPlayer?.play(R.raw.fast_correct, audioId)
+            else audioPlayer?.play(R.raw.fast_incorrect, audioId)
 
     fun playOutPuts() = audioPlayer?.play(cachedResponse!!.output, getAudioAction())
 
@@ -157,7 +182,8 @@ class CustomService : Service(), CoroutineScope {
 
 
     fun emptyRequest() = launch {
-        safeResponse(repository.sendResponseToServer(MainBody("test", location = locale))) {
+        safeResponse(repository.sendResponseToServer(MainBody(user, location = locale))) {
+            cachedResponse = it
             handleResponse(it)
         }
     }
@@ -172,10 +198,12 @@ class CustomService : Service(), CoroutineScope {
 
     fun start() {
         launch {
-            safeResponse(repository.initServer()) {
+            safeResponse(repository.initServer(user)) {
                 launch {
-                    val newResponse = repository.sendResponseToServer(MainBody("test", location = locale))
+                    val newResponse = repository.sendResponseToServer(MainBody(user, location = locale))
+
                     safeResponse(newResponse) {
+                        cachedResponse = it
                         handleResponse(it)
                     }
                 }
@@ -183,21 +211,6 @@ class CustomService : Service(), CoroutineScope {
         }
     }
 
-
-    fun onSpeechEnd() {
-
-        launch {
-            val response = repository.sendResponseToServer(MainBody("test", recognizedText, locale))
-
-            safeResponse(response) {
-                if (it.isCorrect != null) {
-                    mainView.updateQuizResult(getResponseSpeechItem(it.isCorrect))
-                }
-                handleResponse(it)
-            }
-
-        }
-    }
 
     private fun getResponseSpeechItem(isCorrect: Boolean): SpeechItem.MessageIcon? {
         return when {
@@ -210,7 +223,7 @@ class CustomService : Service(), CoroutineScope {
     fun handleFallBack() {
         launch {
             mainView.hideMicInput()
-            safeResponse(repository.getFallBackMessage()) {
+            safeResponse(repository.getFallBackMessage(user)) {
                 audioPlayer?.playReadback(it.audioLink, AudioPlayer.AUDIO_ID_START_RECOGNITION)
             }
         }
@@ -219,9 +232,13 @@ class CustomService : Service(), CoroutineScope {
     fun handleTimeOut() {
         launch {
             mainView.hideMicInput()
-            safeResponse(repository.getTimeOutMessage()) {
+            safeResponse(repository.getTimeOutMessage(user)) {
                 audioPlayer?.playReadback(it.audioLink, AudioPlayer.AUDIO_ID_START_RECOGNITION)
             }
         }
+    }
+
+    fun stopAudio() {
+        audioPlayer?.stop()
     }
 }

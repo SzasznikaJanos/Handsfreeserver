@@ -33,8 +33,8 @@ class  HandsFreeRepository private constructor(){
         return safeFetch(response, "Failed to communicate with server!")
     }
 
-    suspend fun initServer(): ServerResult<ResponseBody> {
-        val response = handsFreeApi.initAsync()
+    suspend fun initServer(user:String): ServerResult<ResponseBody> {
+        val response = handsFreeApi.initAsync(user)
         return safeFetch(response, "Could not initialize the server!")
     }
 
@@ -43,14 +43,14 @@ class  HandsFreeRepository private constructor(){
         return safeFetch(response, "Could not get back the readback message from the server")
     }
 
-    suspend fun getFallBackMessage(): ServerResult<ReadBackResponse> {
-        val response = handsFreeApi.getFallBackMessage()
+    suspend fun getFallBackMessage(user:String): ServerResult<ReadBackResponse> {
+        val response = handsFreeApi.getFallBackMessage(user)
         return safeFetch(response, "Could not get back the fallback message from the server")
     }
 
 
-    suspend fun getTimeOutMessage(): ServerResult<ReadBackResponse> {
-        val response = handsFreeApi.getTimeOut()
+    suspend fun getTimeOutMessage(user:String): ServerResult<ReadBackResponse> {
+        val response = handsFreeApi.getTimeOut(user)
         return safeFetch(response, "Could not get back the TimeOut message from the server")
     }
 

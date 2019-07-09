@@ -1,4 +1,4 @@
-package com.example.handsfree_server.pojo
+package com.example.handsfree_server.api.pojo
 
 
 import com.google.gson.annotations.SerializedName

@@ -1,10 +1,10 @@
 package com.example.handsfree_server.api
 
 
-import com.example.handsfree_server.pojo.InactivityResponse
-import com.example.handsfree_server.pojo.InitResponse
-import com.example.handsfree_server.pojo.ReadBackResponse
-import com.example.handsfree_server.pojo.ResponseFromMainAPi
+import com.example.handsfree_server.api.pojo.InactivityResponse
+import com.example.handsfree_server.api.pojo.InitResponse
+import com.example.handsfree_server.api.pojo.ReadBackResponse
+import com.example.handsfree_server.api.pojo.MainResponse
 
 
 import okhttp3.RequestBody
@@ -20,7 +20,7 @@ import retrofit2.http.Path
 interface HandsFreeApi {
 
     @POST("/api")
-    suspend fun postMainAsync(@Body body: RequestBody): Response<ResponseFromMainAPi>
+    suspend fun postMainAsync(@Body body: RequestBody): Response<MainResponse>
 
     @POST("/init-list")
     suspend fun initList(@Body body: RequestBody): Response<InitResponse>

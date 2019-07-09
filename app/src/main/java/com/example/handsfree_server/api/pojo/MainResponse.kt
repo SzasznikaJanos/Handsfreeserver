@@ -1,9 +1,9 @@
-package com.example.handsfree_server.pojo
+package com.example.handsfree_server.api.pojo
 
 
 import com.google.gson.annotations.SerializedName
 
-data class ResponseFromMainAPi(
+data class MainResponse(
     @SerializedName("has_input")
     val hasInput: Boolean, // true
 

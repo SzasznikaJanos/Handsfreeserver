@@ -4,7 +4,7 @@ import android.util.Log
 import com.example.handsfree_server.api.HandsFreeClient
 import com.example.handsfree_server.api.MainBody
 import com.example.handsfree_server.api.ReadbackBody
-import com.example.handsfree_server.pojo.*
+import com.example.handsfree_server.api.pojo.*
 import com.example.handsfree_server.util.ServerException
 import com.example.handsfree_server.util.ServerResult
 import com.example.handsfree_server.util.toRequestBody
@@ -28,7 +28,7 @@ class HandsFreeRepository private constructor() {
 
     }
 
-    suspend fun sendResponseToServer(mainBody: MainBody): ServerResult<ResponseFromMainAPi> {
+    suspend fun sendResponseToServer(mainBody: MainBody): ServerResult<MainResponse> {
         val response = handsFreeApi.postMainAsync(mainBody.toRequestBody())
         return safeFetch(response, "Failed to communicate with server!")
     }

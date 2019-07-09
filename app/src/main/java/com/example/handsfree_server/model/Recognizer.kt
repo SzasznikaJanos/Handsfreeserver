@@ -1,4 +1,4 @@
-package com.example.handsfree_server.speechrecognizer
+package com.example.handsfree_server.model
 
 
 import android.content.Context

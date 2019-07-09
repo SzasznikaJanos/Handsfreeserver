@@ -1,7 +1,8 @@
-package com.example.handsfree_server
+package com.example.handsfree_server.view
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import com.example.handsfree_server.R
 
 class MainActivity : AppCompatActivity() {
 

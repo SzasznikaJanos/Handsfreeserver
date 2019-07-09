@@ -1,4 +1,4 @@
-package com.example.handsfree_server
+package com.example.handsfree_server.view
 
 import android.content.Context
 import android.graphics.Color
@@ -13,10 +13,12 @@ import androidx.lifecycle.Observer
 
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.handsfree_server.R
 import com.example.handsfree_server.adapters.Adapter
 import com.example.handsfree_server.adapters.TopicAdapter
 import com.example.handsfree_server.model.SpeechItem
-import com.example.handsfree_server.view.MainView
+import com.example.handsfree_server.viewModel.MainViewModel
+import com.example.handsfree_server.viewModel.MainViewModelFactory
 import com.google.android.material.snackbar.Snackbar
 import com.nabinbhandari.android.permissions.PermissionHandler
 import com.nabinbhandari.android.permissions.Permissions

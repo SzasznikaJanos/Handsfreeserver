@@ -11,7 +11,7 @@ import android.text.style.ForegroundColorSpan
 import android.util.Log
 import androidx.annotation.RawRes
 import androidx.core.net.toUri
-import com.example.handsfree_server.pojo.Output
+import com.example.handsfree_server.api.pojo.Output
 import com.example.handsfree_server.util.LanguageCodes
 import com.example.handsfree_server.util.TAG
 import kotlinx.coroutines.*

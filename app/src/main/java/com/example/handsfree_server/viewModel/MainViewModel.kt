@@ -1,4 +1,4 @@
-package com.example.handsfree_server
+package com.example.handsfree_server.viewModel
 
 import android.content.Context
 import android.os.Bundle
@@ -7,16 +7,17 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.example.handsfree_server.R
 import com.example.handsfree_server.api.MainBody
 import com.example.handsfree_server.api.ReadbackBody
 import com.example.handsfree_server.model.AudioPlayer
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.model.SpeechType
-import com.example.handsfree_server.pojo.InitData
-import com.example.handsfree_server.pojo.ReadBackResponse
-import com.example.handsfree_server.pojo.ResponseFromMainAPi
+import com.example.handsfree_server.api.pojo.InitData
+import com.example.handsfree_server.api.pojo.ReadBackResponse
+import com.example.handsfree_server.api.pojo.MainResponse
 import com.example.handsfree_server.repository.HandsFreeRepository
-import com.example.handsfree_server.speechrecognizer.Recognizer
+import com.example.handsfree_server.model.Recognizer
 import com.example.handsfree_server.util.ServerResult
 import com.example.handsfree_server.view.MainView
 import kotlinx.coroutines.CoroutineScope
@@ -37,7 +38,7 @@ class MainViewModel(context: Context, private val mainView: MainView) : ViewMode
     private val locale: String  by lazy { java.util.TimeZone.getDefault().id }
 
 
-    private var cachedResponse: ResponseFromMainAPi? = null
+    private var cachedResponse: MainResponse? = null
 
     private val audioPlayer: AudioPlayer by lazy {
         AudioPlayer(context)
@@ -193,7 +194,7 @@ class MainViewModel(context: Context, private val mainView: MainView) : ViewMode
 
     fun cancelRecognition() = recognizer.cancelRecognition()
 
-    fun stopRecognition() = recognizer.stopRecognition()
+    private fun stopRecognition() = recognizer.stopRecognition()
 
     fun handleReadBack(recognizedText: String?) {
         recognitionLiveData.postValue("")
@@ -241,10 +242,10 @@ class MainViewModel(context: Context, private val mainView: MainView) : ViewMode
 
 
     fun playAudioFeedBack(isCorrect: Boolean, audioId: Int) =
-        if (isCorrect) audioPlayer?.play(R.raw.fast_correct, audioId)
-        else audioPlayer?.play(R.raw.fast_incorrect, audioId)
+        if (isCorrect) audioPlayer.play(R.raw.fast_correct, audioId)
+        else audioPlayer.play(R.raw.fast_incorrect, audioId)
 
-    fun playOutPuts() = audioPlayer?.play(cachedResponse!!.output, getAudioAction())
+    fun playOutPuts() = audioPlayer.play(cachedResponse!!.output, getAudioAction())
 
 
     private fun getAudioAction(): Int {
@@ -268,7 +269,7 @@ class MainViewModel(context: Context, private val mainView: MainView) : ViewMode
     }
 
 
-    private fun handleResponse(response: ResponseFromMainAPi) {
+    private fun handleResponse(response: MainResponse) {
 
         if (!response.output.isNullOrEmpty()) {
             val withOption = response.output.find { !it.options.isNullOrEmpty() }
@@ -294,9 +295,9 @@ class MainViewModel(context: Context, private val mainView: MainView) : ViewMode
                 launch {
                     val newResponse = repository.sendResponseToServer(MainBody(sessionId, location = locale))
 
-                    safeResponse(newResponse) {
-                        cachedResponse = it
-                        handleResponse(it)
+                    safeResponse(newResponse) { apiResponse ->
+                        cachedResponse = apiResponse
+                        handleResponse(apiResponse)
                     }
                 }
             }

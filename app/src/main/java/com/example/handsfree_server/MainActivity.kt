@@ -3,7 +3,7 @@ package com.example.handsfree_server
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 
-class Main2Activity : AppCompatActivity() {
+class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

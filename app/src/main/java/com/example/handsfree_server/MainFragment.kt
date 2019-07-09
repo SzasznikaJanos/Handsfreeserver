@@ -27,10 +27,6 @@ import kotlinx.android.synthetic.main.main_fragment.*
 
 class MainFragment : Fragment(), MainView {
 
-    companion object {
-        fun newInstance() = MainFragment()
-    }
-
     private var _dialog: PopupDialog? = null
 
     private val adapter by lazy { Adapter() }
@@ -46,19 +42,16 @@ class MainFragment : Fragment(), MainView {
         }
     }
 
-    private lateinit var mainRecycler: RecyclerView
-    private lateinit var topicRecycler: RecyclerView
-
     private lateinit var viewModel: MainViewModel
 
+
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+            inflater: LayoutInflater,
+            container: ViewGroup?,
+            savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.main_fragment, container, false)
-        mainRecycler = view.findViewById(R.id.mainRecycler)
-        topicRecycler = view.findViewById(R.id.topicsRecyclerView)
-        return view
+
+        return inflater.inflate(R.layout.main_fragment, container, false)
     }
 
 
@@ -66,12 +59,20 @@ class MainFragment : Fragment(), MainView {
         super.onViewCreated(view, savedInstanceState)
 
         viewModel = ViewModelProviders.of(this, MainViewModelFactory(context!!, this))[MainViewModel::class.java]
+        pauseButton.setOnClickListener {
+            if (pauseButton.text.toString() == "Pause") {
+                pause()
+            } else {
+                viewModel.emptyRequest()
+                pauseButton.text = "Pause"
+            }
+        }
 
 
         mainRecycler.layoutManager = layoutManager
         mainRecycler.adapter = adapter
         //itemAnimator
-        topicRecycler.adapter = topicAdapter
+        topicsRecyclerView.adapter = topicAdapter
 
         viewModel.recognitionLiveData.observe(this, Observer {
             speechRecognized_textView.text = it
@@ -79,6 +80,12 @@ class MainFragment : Fragment(), MainView {
 
         checkPermissions()
 
+    }
+
+
+    override fun onStop() {
+        super.onStop()
+        pause()
     }
 
     override fun pause() {
@@ -90,7 +97,6 @@ class MainFragment : Fragment(), MainView {
             pauseButton.text = "Resume"
         }
     }
-
 
     override fun showErrorMessage(errorMessage: String) {
         activity!!.runOnUiThread {
@@ -120,7 +126,6 @@ class MainFragment : Fragment(), MainView {
     }
 
     override fun showButtons(buttonTexts: List<String>) = activity!!.runOnUiThread {
-
         /*   buttonsLayout.visibility = View.VISIBLE
            for (i in 0..4) {
                val buttonText = buttonTexts.elementAtOrNull(i)
@@ -162,9 +167,9 @@ class MainFragment : Fragment(), MainView {
     }
 
     private fun createAndShowDialog(
-        messageText: String,
-        buttonText: String,
-        onCancelCallBack: (dialog: PopupDialog) -> Unit
+            messageText: String,
+            buttonText: String,
+            onCancelCallBack: (dialog: PopupDialog) -> Unit
     ) {
         activity?.runOnUiThread {
             if (_dialog?.isShowing() == true) _dialog?.dismiss()
@@ -202,7 +207,7 @@ class MainFragment : Fragment(), MainView {
             }
 
             override fun onDenied(context: Context?, deniedPermissions: ArrayList<String>?) =
-                handleDeniedPermission("We need Audio Record permission so we can use Speech Recognition")
+                    handleDeniedPermission("We need Audio Record permission so we can use Speech Recognition")
 
             override fun onBlocked(context: Context?, blockedList: ArrayList<String>?): Boolean {
                 handleDeniedPermission("Please grand Audio Record permissions  from settings in order to use speech recognition")
@@ -214,11 +219,11 @@ class MainFragment : Fragment(), MainView {
         Permissions.Options()
         val x = arrayOf(android.Manifest.permission.RECORD_AUDIO)
         Permissions.check(
-            context,
-            x,
-            rationalString,
-            Permissions.Options(),
-            permissionHandler
+                context,
+                x,
+                rationalString,
+                Permissions.Options(),
+                permissionHandler
         )
     }
 

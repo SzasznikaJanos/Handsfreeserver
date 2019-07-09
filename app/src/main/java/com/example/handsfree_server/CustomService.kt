@@ -11,6 +11,7 @@ import com.example.handsfree_server.api.ReadbackBody
 import com.example.handsfree_server.model.AudioPlayer
 import com.example.handsfree_server.model.SpeechItem
 import com.example.handsfree_server.model.SpeechType
+import com.example.handsfree_server.pojo.InitData
 import com.example.handsfree_server.pojo.ReadBackResponse
 import com.example.handsfree_server.pojo.ResponseFromMainAPi
 import com.example.handsfree_server.repository.HandsFreeRepository
@@ -32,11 +33,9 @@ class CustomService : Service(), CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Default
 
-    private val user = "test-Tudor"
-
+    private var sessionId = ""
 
     private val locale: String  by lazy { java.util.TimeZone.getDefault().id }
-
     private var cachedResponse: ResponseFromMainAPi? = null
     private var audioPlayer: AudioPlayer? = null
     private var recognizer: Recognizer? = null
@@ -49,15 +48,31 @@ class CustomService : Service(), CoroutineScope {
     }
 
 
+    private val initData by lazy {
+        InitData(
+            "android-0", 2, 1, 2, listOf(
+                10027,
+                10026,
+                10032,
+                10033,
+                6613,
+                7179,
+                7178,
+                7177,
+                7176
+            ),
+            locale
+        )
+    }
     private lateinit var mainView: MainView
 
 
     companion object {
         fun fromBinder(
-                mainVIew: MainView,
-                binder: IBinder,
-                audioPlayer: AudioPlayer,
-                recognizer: Recognizer
+            mainVIew: MainView,
+            binder: IBinder,
+            audioPlayer: AudioPlayer,
+            recognizer: Recognizer
         ): CustomService = (binder as CustomBinder).service.apply {
 
             this.mainView = mainVIew
@@ -70,8 +85,8 @@ class CustomService : Service(), CoroutineScope {
                     when (audioId) {
                         AudioPlayer.AUDIO_ID_START_RECOGNITION -> startRecognizing()
                         AudioPlayer.AUDIO_ID_PLAY_FEEDBACK -> playAudioFeedBack(
-                                cachedResponse!!.isCorrect!!,
-                                AudioPlayer.AUDIO_ID_PLAY_OUTPUTS
+                            cachedResponse!!.answerStatus?.isCorrect!!,
+                            AudioPlayer.AUDIO_ID_PLAY_OUTPUTS
                         )
                         AudioPlayer.AUDIO_ID_PLAY_OUTPUTS -> playOutPuts()
                         AudioPlayer.AUDIO_ID_NEW_REQUEST -> emptyRequest()
@@ -97,43 +112,38 @@ class CustomService : Service(), CoroutineScope {
 
     fun startRecognizing() {
         mainView.showMicInput()
-        mainView.showButtons(listOf("help", "pause", "skip", "stop"))
+        mainView.showButtons(listOf("help", "pause", "skip", "cancelRecognition"))
         recognizer?.startListening(cachedResponse!!.inputLang)
     }
 
-    fun stopRecognizing() = recognizer?.stop()
+    fun cancelRecognition() = recognizer?.cancelRecognition()
 
-    fun resetRecognizer() {
-        recognizer?.stop()
-        recognizer?.reset()
-
-    }
+    fun stopRecognition() = recognizer?.stopRecognition()
 
 
     private fun playReadBack(response: ReadBackResponse) =
-            audioPlayer?.playReadback(response.audioLink, AudioPlayer.AUDIO_ID_READBACK)
+        audioPlayer?.playReadback(response.audioLink, AudioPlayer.AUDIO_ID_READBACK)
 
 
     fun handleReadBack(userResponse: String) {
         launch {
-            safeResponse(repository.sendResponseToServer(MainBody(user, userResponse, locale))) {
+            safeResponse(repository.sendResponseToServer(MainBody(sessionId, userResponse, locale))) {
 
-                val readBackTextRequest =
-                        if (it.isCorrect != true || cachedResponse?.readBackText.isNullOrBlank())
-                userResponse else
-                    cachedResponse?.readBackText
+                val answerStatus = it.answerStatus
+                val readBackTextRequest = if (answerStatus != null && answerStatus.isCorrect)
+                    answerStatus.correctAnswer else userResponse
 
-                val isCorrect = it.isCorrect
-
+                val isCorrect = answerStatus?.isCorrect
 
                 launch {
-                    safeResponse(repository.getReadBackMessage(ReadbackBody(cachedResponse!!.inputLang,
-                            readBackTextRequest))) { readbackResponse ->
-
-
+                    safeResponse(
+                        repository.getReadBackMessage(
+                            ReadbackBody(cachedResponse!!.inputLang, userResponse)
+                        )
+                    ) { readbackResponse ->
                         val messageIcon = isCorrect?.let { getResponseSpeechItem(isCorrect) }
                         Log.d("Test", "handleReadBack: adding bubble text:$readBackTextRequest")
-                        mainView.addTTSBubble(SpeechItem(readBackTextRequest, SpeechType.SENT, messageIcon))
+                        mainView.addTTSBubble(SpeechItem(userResponse, SpeechType.SENT, messageIcon))
                         cachedResponse = it
                         playReadBack(readbackResponse)
                     }
@@ -153,8 +163,8 @@ class CustomService : Service(), CoroutineScope {
         }
 
 
-        if (response.isCorrect != null) {
-            playAudioFeedBack(response.isCorrect, AudioPlayer.AUDIO_ID_PLAY_OUTPUTS)
+        if (response.answerStatus?.isCorrect != null) {
+            playAudioFeedBack(response.answerStatus.isCorrect, AudioPlayer.AUDIO_ID_PLAY_OUTPUTS)
         } else {
             playOutPuts()
         }
@@ -162,8 +172,8 @@ class CustomService : Service(), CoroutineScope {
     }
 
     fun playAudioFeedBack(isCorrect: Boolean, audioId: Int) =
-            if (isCorrect) audioPlayer?.play(R.raw.fast_correct, audioId)
-            else audioPlayer?.play(R.raw.fast_incorrect, audioId)
+        if (isCorrect) audioPlayer?.play(R.raw.fast_correct, audioId)
+        else audioPlayer?.play(R.raw.fast_incorrect, audioId)
 
     fun playOutPuts() = audioPlayer?.play(cachedResponse!!.output, getAudioAction())
 
@@ -182,7 +192,7 @@ class CustomService : Service(), CoroutineScope {
 
 
     fun emptyRequest() = launch {
-        safeResponse(repository.sendResponseToServer(MainBody(user, location = locale))) {
+        safeResponse(repository.sendResponseToServer(MainBody(sessionId, location = locale))) {
             cachedResponse = it
             handleResponse(it)
         }
@@ -198,9 +208,11 @@ class CustomService : Service(), CoroutineScope {
 
     fun start() {
         launch {
-            safeResponse(repository.initServer(user)) {
+            safeResponse(repository.initServerList(initData)) {
+                sessionId = it.sessionId
+
                 launch {
-                    val newResponse = repository.sendResponseToServer(MainBody(user, location = locale))
+                    val newResponse = repository.sendResponseToServer(MainBody(sessionId, location = locale))
 
                     safeResponse(newResponse) {
                         cachedResponse = it
@@ -208,6 +220,8 @@ class CustomService : Service(), CoroutineScope {
                     }
                 }
             }
+
+
         }
     }
 
@@ -223,7 +237,7 @@ class CustomService : Service(), CoroutineScope {
     fun handleFallBack() {
         launch {
             mainView.hideMicInput()
-            safeResponse(repository.getFallBackMessage(user)) {
+            safeResponse(repository.getFallBackMessage(sessionId)) {
                 audioPlayer?.playReadback(it.audioLink, AudioPlayer.AUDIO_ID_START_RECOGNITION)
             }
         }
@@ -232,8 +246,12 @@ class CustomService : Service(), CoroutineScope {
     fun handleTimeOut() {
         launch {
             mainView.hideMicInput()
-            safeResponse(repository.getTimeOutMessage(user)) {
-                audioPlayer?.playReadback(it.audioLink, AudioPlayer.AUDIO_ID_START_RECOGNITION)
+            safeResponse(repository.getTimeOutMessage(sessionId)) {
+                if (it.pause) {
+                    mainView.pause()
+                } else {
+                    audioPlayer?.playReadback(it.audio, AudioPlayer.AUDIO_ID_START_RECOGNITION)
+                }
             }
         }
     }

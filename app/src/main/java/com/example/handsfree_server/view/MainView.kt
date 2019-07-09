@@ -16,4 +16,5 @@ interface MainView {
     fun hideErrorMessage()
     fun showTopicRecyclerView(topics: List<String>)
     fun hideTopicRecyclerView()
+    fun pause()
 }

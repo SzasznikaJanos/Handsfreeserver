@@ -1,9 +1,10 @@
 package com.example.handsfree_server.api
 
 
+import com.example.handsfree_server.pojo.InactivityResponse
+import com.example.handsfree_server.pojo.InitResponse
 import com.example.handsfree_server.pojo.ReadBackResponse
 import com.example.handsfree_server.pojo.ResponseFromMainAPi
-
 
 
 import okhttp3.RequestBody
@@ -21,9 +22,14 @@ interface HandsFreeApi {
     @POST("/api")
     suspend fun postMainAsync(@Body body: RequestBody): Response<ResponseFromMainAPi>
 
+    @POST("/init-list")
+    suspend fun initList(@Body body: RequestBody): Response<InitResponse>
+
+    @POST("/inactivity")
+    suspend fun getInactivityMessage(@Body body :RequestBody): Response<InactivityResponse>
 
     @GET("/init/{user}")
-    suspend fun initAsync(@Path("user") user:String): Response<ResponseBody>
+    suspend fun initAsync(@Path("user") user: String): Response<ResponseBody>
 
     @GET("/creds")
     suspend fun getCredentialsAsync(): Response<ResponseBody>
@@ -32,9 +38,11 @@ interface HandsFreeApi {
     suspend fun readback(@Body body: RequestBody): Response<ReadBackResponse>
 
     @GET("/fallback/{user}")
-    suspend fun getFallBackMessage(@Path("user")user:String): Response<ReadBackResponse>
+    suspend fun getFallBackMessage(@Path("user") user: String): Response<ReadBackResponse>
 
 
     @GET("/timeout/{user}")
-    suspend fun getTimeOut(@Path("user")user:String): Response<ReadBackResponse>
+    suspend fun getTimeOut(@Path("user") user: String): Response<ReadBackResponse>
+
+
 }

@@ -8,7 +8,7 @@ data class ResponseFromMainAPi(
     val hasInput: Boolean, // true
 
     @SerializedName("input_lang")
-    val inputLang: String, // en-GB
+    val inputLang: Int, // en-GB
 
     @SerializedName("output")
     val output: List<Output>,
@@ -16,14 +16,11 @@ data class ResponseFromMainAPi(
     @SerializedName("hints")
     val inputHints: List<String> = listOf(),
 
-    @SerializedName("is_correct")
-    val isCorrect: Boolean? = null,
-
     @SerializedName("dialog_type")
     val dialogType: String?,
 
-    @SerializedName("correct_answer")
-    val readBackText: String? = null
+    @SerializedName("answer_status")
+    val answerStatus:AnswerStatus? = null
 
 
 )

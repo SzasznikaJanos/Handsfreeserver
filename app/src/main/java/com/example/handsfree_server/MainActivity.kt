@@ -11,7 +11,6 @@ import android.os.*
 import androidx.appcompat.app.AppCompatActivity
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
-import android.system.Os.bind
 
 import android.util.Log
 import android.view.View
@@ -63,7 +62,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
     private val topicAdapter by lazy {
         TopicAdapter {
-            customService?.stopRecognizing()
+            customService?.cancelRecognition()
             presenter.handleReadBack(it)
             Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
         }
@@ -110,12 +109,7 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
 
         pauseButton.setOnClickListener {
             if (pauseButton.text.toString() == "Pause") {
-                customService?.stopRecognizing()
-                customService?.stopAudio()
-                hideTopicRecyclerView()
-                hideMicInput()
-
-                pauseButton.text = "Resume"
+                pause()
             } else {
                 presenter.emptyRequest()
                 pauseButton.text = "Pause"
@@ -134,8 +128,9 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         }
     }
 
+
     private fun handleButtonEvent(text: String) {
-        customService?.stopRecognizing()
+        customService?.cancelRecognition()
         customService?.stopAudio()
         hideTopicRecyclerView()
         hideMicInput()
@@ -149,6 +144,16 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
             mainRecycler.visibility = View.INVISIBLE
             error_textView.visibility = View.VISIBLE
             error_textView.text = errorMessage
+        }
+    }
+
+    override fun pause() {
+        runOnUiThread {
+            customService?.cancelRecognition()
+            customService?.stopAudio()
+            hideTopicRecyclerView()
+            hideMicInput()
+            pauseButton.text = "Resume"
         }
     }
 
@@ -170,18 +175,18 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     }
 
     override fun showButtons(buttonTexts: List<String>) = runOnUiThread {
-        return@runOnUiThread
-        buttonsLayout.visibility = View.VISIBLE
-        for (i in 0..4) {
-            val buttonText = buttonTexts.elementAtOrNull(i)
-            val button = when (i) {
-                0 -> button_one
-                1 -> button_two
-                2 -> button_three
-                else -> button_four
-            }
-            setButtonTextAndVisibility(button, buttonText)
-        }
+
+        /*   buttonsLayout.visibility = View.VISIBLE
+           for (i in 0..4) {
+               val buttonText = buttonTexts.elementAtOrNull(i)
+               val button = when (i) {
+                   0 -> button_one
+                   1 -> button_two
+                   2 -> button_three
+                   else -> button_four
+               }
+               setButtonTextAndVisibility(button, buttonText)
+           }*/
     }
 
     private fun setButtonTextAndVisibility(button: Button, text: String?) {
@@ -190,13 +195,12 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     }
 
     override fun hideButtons() = runOnUiThread {
-        return@runOnUiThread
-        buttonsLayout.visibility = View.GONE
+        // buttonsLayout.visibility = View.GONE
     }
 
     override fun showDialog(dialogType: String) {
         when (dialogType) {
-            "stop" -> createAndShowDialog("Stopped", "Start") {
+            "cancelRecognition" -> createAndShowDialog("Stopped", "Start") {
                 it.dismiss()
                 presenter.emptyRequest()
             }
@@ -320,8 +324,22 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     override fun onPartialResults(partialResults: Bundle?) {
         if (partialResults != null && partialResults.containsKey(SpeechRecognizer.RESULTS_RECOGNITION)) {
             val data = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+
             if (data != null) {
                 Log.d("Recognizer", "onPartialResults: $partialResults")
+
+
+                val recognizedText = customService?.hint?.let {
+                    getRecognizedText(data, it, false)
+                }
+                Log.d("Test", "onPartialResults: target text:$recognizedText")
+
+
+
+                if (!recognizedText.isNullOrBlank()) {
+                    customService?.stopRecognition()
+                }
+
                 presenter.recognizedTextLiveData.postValue(data.last())
             }
         }
@@ -345,17 +363,17 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         presenter.recognizedTextLiveData.value = ""
 
         when (error) {
-            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> customService?.handleTimeOut()
-            SpeechRecognizer.ERROR_NO_MATCH -> customService?.handleFallBack()
+            SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
+            SpeechRecognizer.ERROR_NO_MATCH -> customService?.handleTimeOut()
+            // customService?.handleFallBack()
         }
 
     }
 
-    private fun getRecognizedText(results: List<String>, targetText: String) =
-        results.find { it.toLowerCase() == targetText.toLowerCase() } ?: results[0]
+    private fun getRecognizedText(results: List<String>, targetText: String, withDefaultValue: Boolean = true) =
+        results.find { it.toLowerCase() == targetText.toLowerCase() } ?: if (withDefaultValue) results[0] else null
 
     override fun onResults(results: Bundle?) {
-
         if (results != null && results.containsKey(SpeechRecognizer.RESULTS_RECOGNITION)) {
             val data = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (data != null) {
@@ -376,15 +394,13 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
         hideMicInput()
     }
 
-    fun bind() {
-        bindService(Intent(this, CustomService::class.java), this, Context.BIND_AUTO_CREATE)
-    }
+    fun bind() = bindService(Intent(this, CustomService::class.java), this, Context.BIND_AUTO_CREATE)
 
-    fun unbind() {
-        unbindService(this)
-    }
+
+    private fun unbind() = unbindService(this)
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+        Log.d("MainActivity", "onServiceConnected: ")
         service?.let {
             customService = CustomService.fromBinder(this, service, AudioPlayer(this), Recognizer(this, this)).also {
                 presenter.service = it
@@ -400,6 +416,4 @@ class MainActivity : AppCompatActivity(), CoroutineScope, MainView, RecognitionL
     override fun onAudioFocusChange(focusChange: Int) {
         Log.d("Focus changed", "onAudioFocusChange: $focusChange")
     }
-
-
 }

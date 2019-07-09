@@ -14,8 +14,8 @@ data class Output(
     val text: String, // Sorry, I don't know much about this topic yet, but I'm learning new things every day. Do you want to try another one?
 
     @SerializedName("type")
-    val type: String, // options
+    val type: Int, // options
 
     @SerializedName("language")
-    val language: String
+    val language: Int
 )

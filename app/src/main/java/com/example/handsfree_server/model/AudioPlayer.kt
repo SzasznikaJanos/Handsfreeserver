@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.annotation.RawRes
 import androidx.core.net.toUri
 import com.example.handsfree_server.pojo.Output
+import com.example.handsfree_server.util.LanguageCodes
 import com.example.handsfree_server.util.TAG
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
@@ -148,10 +149,9 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
     private fun buildSpeechItem(): SpeechItem? {
         if (outPutPosition in 0 until outputs.size) {
             val output = outputs[outPutPosition]
-            return if (output.type == "phrase") {
-                buildSpeechItemSpannableFromQuizItem(output) ?: SpeechItem(output.text)
-            } else {
-                SpeechItem(output.text)
+            return when {
+                output.type == 1 -> buildSpeechItemSpannableFromQuizItem(output) ?: SpeechItem(output.text)
+                else -> SpeechItem(output.text)
             }
         }
         return null
@@ -172,7 +172,9 @@ class AudioPlayer(private val context: Context) : CoroutineScope {
 
     private fun getFlagResIdFromOutPut(outPut: Output): Int {
         try {
-            val resName = "flag_${outPut.language}"
+            val languageTag = LanguageCodes.values().find { it.code == outPut.language }?.name?.toLowerCase()
+            Log.d("AudioPlayer", "getFlagResIdFromOutPut: tag =$languageTag")
+            val resName = "flag_$languageTag"
             return context.resources.getIdentifier(resName, "drawable", context.packageName)
         } catch (exception: Exception) {
             exception.printStackTrace()
